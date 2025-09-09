@@ -93,6 +93,17 @@ func (l *MsLeilao) Start() {
 					Body:        body,
 				},
 			)
+			queueName := fmt.Sprintf("leilao_%s", auction.ID)
+			l.ch.Publish(
+				"leilao_events",
+				queueName,
+				false,
+				false,
+				amqp.Publishing{
+					ContentType: "application/json",
+					Body:        body,
+				},
+			)
 			log.Printf("Leilão %s finalizado!", a.ID)
 		}(auction)
 	}
