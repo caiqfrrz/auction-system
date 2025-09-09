@@ -80,7 +80,7 @@ func (c *Client) SendBid(auctionID string, value float64) {
 	)
 	c.gui.Update(func(g *gocui.Gui) error {
 		v, _ := g.View("notifications")
-		fmt.Fprintf(v, "[Leilão %s] Você colocou um lance: %.2f\n", auctionID, value)
+		fmt.Fprintf(v, "[Leilão %s] Você tentou por um lance: %.2f\n", auctionID, value)
 		return nil
 	})
 }
