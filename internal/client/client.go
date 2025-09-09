@@ -2,7 +2,6 @@ package client
 
 import (
 	"auction-system/pkg/models"
-	"auction-system/pkg/rabbitmq"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -24,7 +23,28 @@ func NewClient(ch *amqp.Channel, userID string) *Client {
 }
 
 func (c *Client) ListenAuctions() {
-	q := rabbitmq.DeclareQueue(c.ch, "leilao_iniciado")
+	// Declara exchange (idempotente)
+	c.ch.ExchangeDeclare(
+		"leilao_events", // name
+		"topic",         // type
+		true,            // durable
+		false,           // auto-deleted
+		false,           // internal
+		false,           // no-wait
+		nil,
+	)
+	// Fila exclusiva para este cliente
+	q, _ := c.ch.QueueDeclare(
+		"",    // nome vazio = RabbitMQ gera um nome único
+		false, // não-durável
+		true,  // auto-delete
+		true,  // exclusiva
+		false, // no-wait
+		nil,
+	)
+	// Faz o binding para receber todos os leilões iniciados
+	c.ch.QueueBind(q.Name, "leilao.iniciado", "leilao_events", false, nil)
+
 	msgs, _ := c.ch.Consume(q.Name, "", true, false, false, false, nil)
 
 	for d := range msgs {
@@ -48,7 +68,16 @@ func (c *Client) SendBid(auctionID string, value float64) {
 	}
 
 	body, _ := json.Marshal(bid)
-	rabbitmq.Publish(c.ch, "lance_realizado", body)
+	c.ch.Publish(
+		"leilao_events",   // exchange
+		"lance.realizado", // routing key
+		false,
+		false,
+		amqp.Publishing{
+			ContentType: "application/json",
+			Body:        body,
+		},
+	)
 	c.gui.Update(func(g *gocui.Gui) error {
 		v, _ := g.View("notifications")
 		fmt.Fprintf(v, "[Leilão %s] Você colocou um lance: %.2f\n", auctionID, value)
@@ -57,8 +86,18 @@ func (c *Client) SendBid(auctionID string, value float64) {
 }
 
 func (c *Client) ListenNotifications(auctionID string) {
-	queueName := fmt.Sprintf("leilao_%s", auctionID)
-	q := rabbitmq.DeclareQueue(c.ch, queueName)
+	// Fila exclusiva para notificações deste leilão
+	q, _ := c.ch.QueueDeclare(
+		"",    // nome vazio = RabbitMQ gera um nome único
+		false, // não-durável
+		true,  // auto-delete
+		true,  // exclusiva
+		false, // no-wait
+		nil,
+	)
+	// Exemplo: escuta lances validados e vencedor desse leilão
+	c.ch.QueueBind(q.Name, fmt.Sprintf("lance.validado.%s", auctionID), "leilao_events", false, nil)
+	c.ch.QueueBind(q.Name, fmt.Sprintf("leilao.vencedor.%s", auctionID), "leilao_events", false, nil)
 
 	msgs, _ := c.ch.Consume(q.Name, "", true, false, false, false, nil)
 
