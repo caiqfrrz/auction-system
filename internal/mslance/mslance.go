@@ -6,6 +6,8 @@ import (
 	"log"
 	"sync"
 
+	"auction-system/pkg/rabbitmq"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -36,31 +38,22 @@ func NewMSLance(ch *amqp.Channel) *MSLance {
 
 // Inicializa a exchange e faz o binding das filas
 func (m *MSLance) DeclareExchangeAndQueues() {
-	m.ch.ExchangeDeclare(
-		"leilao_events",
-		"topic",
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
+	rabbitmq.DeclareExchange(m.ch, "leilao_events", "topic")
 
-	// Bind para consumir eventos
-	m.ch.QueueDeclare("lance_realizado", true, false, false, false, nil)
-	m.ch.QueueBind("lance_realizado", "lance.realizado", "leilao_events", false, nil)
+	rabbitmq.DeclareQueue(m.ch, "lance_realizado")
+	rabbitmq.BindQueueToExchange(m.ch, "lance_realizado", "lance.realizado", "leilao_events")
 
-	m.ch.QueueDeclare("leilao_iniciado", true, false, false, false, nil)
-	m.ch.QueueBind("leilao_iniciado", "leilao.iniciado", "leilao_events", false, nil)
+	rabbitmq.DeclareQueue(m.ch, "leilao_iniciado")
+	rabbitmq.BindQueueToExchange(m.ch, "leilao_iniciado", "leilao.iniciado", "leilao_events")
 
-	m.ch.QueueDeclare("leilao_finalizado", true, false, false, false, nil)
-	m.ch.QueueBind("leilao_finalizado", "leilao.finalizado", "leilao_events", false, nil)
+	rabbitmq.DeclareQueue(m.ch, "leilao_finalizado")
+	rabbitmq.BindQueueToExchange(m.ch, "leilao_finalizado", "leilao.finalizado", "leilao_events")
 
-	m.ch.QueueDeclare("lance_validado", true, false, false, false, nil)
-	m.ch.QueueBind("lance_validado", "lance.validado", "leilao_events", false, nil)
+	rabbitmq.DeclareQueue(m.ch, "lance_validado")
+	rabbitmq.BindQueueToExchange(m.ch, "lance_validado", "lance.validado", "leilao_events")
 
-	m.ch.QueueDeclare("leilao_vencedor", true, false, false, false, nil)
-	m.ch.QueueBind("leilao_vencedor", "leilao.vencedor", "leilao_events", false, nil)
+	rabbitmq.DeclareQueue(m.ch, "leilao_vencedor")
+	rabbitmq.BindQueueToExchange(m.ch, "leilao_vencedor", "leilao.vencedor", "leilao_events")
 }
 
 func (m *MSLance) ListenLeilaoIniciado() {

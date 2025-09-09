@@ -2,6 +2,7 @@ package client
 
 import (
 	"auction-system/pkg/models"
+	"auction-system/pkg/rabbitmq"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -25,26 +26,11 @@ func NewClient(ch *amqp.Channel, userID string) *Client {
 
 func (c *Client) ListenAuctions() {
 	// Declara exchange (idempotente)
-	c.ch.ExchangeDeclare(
-		"leilao_events", // name
-		"topic",         // type
-		true,            // durable
-		false,           // auto-deleted
-		false,           // internal
-		false,           // no-wait
-		nil,
-	)
-	// Fila exclusiva para este cliente
-	q, _ := c.ch.QueueDeclare(
-		"",    // nome vazio = RabbitMQ gera um nome único
-		false, // não-durável
-		true,  // auto-delete
-		true,  // exclusiva
-		false, // no-wait
-		nil,
-	)
+	rabbitmq.DeclareExchange(c.ch, "leilao_events", "topic")
+	q := rabbitmq.DeclareTempQueue(c.ch)
+
 	// Faz o binding para receber todos os leilões iniciados
-	c.ch.QueueBind(q.Name, "leilao.iniciado", "leilao_events", false, nil)
+	rabbitmq.BindQueueToExchange(c.ch, q.Name, "leilao.iniciado", "leilao_events")
 
 	msgs, _ := c.ch.Consume(q.Name, "", true, false, false, false, nil)
 
@@ -69,16 +55,7 @@ func (c *Client) SendBid(auctionID string, value float64) {
 	}
 
 	body, _ := json.Marshal(bid)
-	c.ch.Publish(
-		"leilao_events",   // exchange
-		"lance.realizado", // routing key
-		false,
-		false,
-		amqp.Publishing{
-			ContentType: "application/json",
-			Body:        body,
-		},
-	)
+	rabbitmq.PublishToExchange(c.ch, "leilao_events", "lance.realizado", body)
 
 	c.ListenNotifications(auctionID)
 
@@ -96,17 +73,11 @@ func (c *Client) ListenNotifications(auctionID string) {
 	c.listening[auctionID] = true
 
 	// Cria fila exclusiva para notificações desse leilão
-	q, _ := c.ch.QueueDeclare(
-		"",    // nome vazio = RabbitMQ gera um nome único
-		false, // não-durável
-		true,  // auto-delete
-		true,  // exclusiva
-		false, // no-wait
-		nil,
-	)
+	q := rabbitmq.DeclareTempQueue(c.ch)
+
 	// Faz o binding para a fila leilao_{id}
 	queueName := fmt.Sprintf("leilao_%s", auctionID)
-	c.ch.QueueBind(q.Name, queueName, "leilao_events", false, nil)
+	rabbitmq.BindQueueToExchange(c.ch, q.Name, queueName, "leilao_events")
 
 	msgs, _ := c.ch.Consume(q.Name, "", true, false, false, false, nil)
 	go func() {
@@ -132,6 +103,8 @@ func (c *Client) handleEnter(g *gocui.Gui, v *gocui.View) error {
 		if err == nil {
 			c.SendBid(auctionID, value)
 		}
+	} else if parts[0] == "q" {
+		return gocui.ErrQuit
 	}
 	return nil
 }

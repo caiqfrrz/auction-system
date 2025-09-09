@@ -1,6 +1,7 @@
 package msnotis
 
 import (
+	"auction-system/pkg/rabbitmq"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -17,21 +18,13 @@ func NewMSNotis(ch *amqp.Channel) *MSNotis {
 }
 
 func (m *MSNotis) DeclareExchangeAndQueues() {
-	m.ch.ExchangeDeclare(
-		"leilao_events",
-		"topic",
-		true,
-		false,
-		false,
-		false,
-		nil,
-	)
+	rabbitmq.DeclareExchange(m.ch, "leilao_events", "topic")
 
-	m.ch.QueueDeclare("lance_validado", true, false, false, false, nil)
-	m.ch.QueueBind("lance_validado", "lance.validado", "leilao_events", false, nil)
+	rabbitmq.DeclareQueue(m.ch, "lance_validado")
+	rabbitmq.BindQueueToExchange(m.ch, "lance_validado", "lance.validado", "leilao_events")
 
-	m.ch.QueueDeclare("leilao_vencedor", true, false, false, false, nil)
-	m.ch.QueueBind("leilao_vencedor", "leilao.vencedor", "leilao_events", false, nil)
+	rabbitmq.DeclareQueue(m.ch, "leilao_vencedor")
+	rabbitmq.BindQueueToExchange(m.ch, "leilao_vencedor", "leilao.vencedor", "leilao_events")
 }
 
 func (m *MSNotis) ListenAndPublish() {
@@ -45,18 +38,9 @@ func (m *MSNotis) ListenAndPublish() {
 			}
 			if err := json.Unmarshal(d.Body, &msg); err == nil && msg.LeilaoID != "" {
 				queueName := fmt.Sprintf("leilao_%s", msg.LeilaoID)
-				m.ch.QueueDeclare(queueName, true, false, false, false, nil)
-				m.ch.QueueBind(queueName, queueName, "leilao_events", false, nil)
-				m.ch.Publish(
-					"leilao_events",
-					queueName,
-					false,
-					false,
-					amqp.Publishing{
-						ContentType: "application/json",
-						Body:        d.Body,
-					},
-				)
+				rabbitmq.DeclareQueue(m.ch, queueName)
+				rabbitmq.BindQueueToExchange(m.ch, queueName, queueName, "leilao_events")
+				rabbitmq.PublishToExchange(m.ch, "leilao_events", queueName, d.Body)
 				log.Printf("Notificação de lance_validado publicada para %s", queueName)
 			}
 		}
@@ -69,18 +53,9 @@ func (m *MSNotis) ListenAndPublish() {
 			}
 			if err := json.Unmarshal(d.Body, &msg); err == nil && msg.LeilaoID != "" {
 				queueName := fmt.Sprintf("leilao_%s", msg.LeilaoID)
-				m.ch.QueueDeclare(queueName, true, false, false, false, nil)
-				m.ch.QueueBind(queueName, queueName, "leilao_events", false, nil)
-				m.ch.Publish(
-					"leilao_events",
-					queueName,
-					false,
-					false,
-					amqp.Publishing{
-						ContentType: "application/json",
-						Body:        d.Body,
-					},
-				)
+				rabbitmq.DeclareQueue(m.ch, queueName)
+				rabbitmq.BindQueueToExchange(m.ch, queueName, queueName, "leilao_events")
+				rabbitmq.PublishToExchange(m.ch, "leilao_events", queueName, d.Body)
 				log.Printf("Notificação de leilao_vencedor publicada para %s", queueName)
 			}
 		}

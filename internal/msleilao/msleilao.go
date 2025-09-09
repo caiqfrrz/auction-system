@@ -2,6 +2,7 @@ package msleilao
 
 import (
 	"auction-system/pkg/models"
+	"auction-system/pkg/rabbitmq"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -33,20 +34,8 @@ func NewMsLeilao(ch *amqp.Channel) *MsLeilao {
 	return &MsLeilao{ch: ch, auctions: auctions}
 }
 
-func (l *MsLeilao) DeclareExchange() {
-	l.ch.ExchangeDeclare(
-		"leilao_events", // name
-		"topic",         // type
-		true,            // durable
-		false,           // auto-deleted
-		false,           // internal
-		false,           // no-wait
-		nil,
-	)
-}
-
 func (l *MsLeilao) Start() {
-	l.DeclareExchange()
+	rabbitmq.DeclareExchange(l.ch, "leilao_events", "topic")
 	for i := range l.auctions {
 		auction := &l.auctions[i]
 
@@ -61,16 +50,7 @@ func (l *MsLeilao) Start() {
 			}
 			body, _ := json.Marshal(event)
 			// Publica na exchange com routing key
-			l.ch.Publish(
-				"leilao_events",
-				"leilao.iniciado",
-				false,
-				false,
-				amqp.Publishing{
-					ContentType: "application/json",
-					Body:        body,
-				},
-			)
+			rabbitmq.PublishToExchange(l.ch, "leilao_events", "leilao.iniciado", body)
 			log.Printf("Leilão %s iniciado!", a.ID)
 		}(auction)
 
@@ -83,27 +63,10 @@ func (l *MsLeilao) Start() {
 			}
 			body, _ := json.Marshal(event)
 			// Publica na exchange com routing key
-			l.ch.Publish(
-				"leilao_events",
-				"leilao.finalizado",
-				false,
-				false,
-				amqp.Publishing{
-					ContentType: "application/json",
-					Body:        body,
-				},
-			)
-			queueName := fmt.Sprintf("leilao_%s", auction.ID)
-			l.ch.Publish(
-				"leilao_events",
-				queueName,
-				false,
-				false,
-				amqp.Publishing{
-					ContentType: "application/json",
-					Body:        body,
-				},
-			)
+			rabbitmq.PublishToExchange(l.ch, "leilao_events", "leilao.finalizado", body)
+
+			queueName := fmt.Sprintf("leilao_%s", a.ID)
+			rabbitmq.PublishToExchange(l.ch, "leilao_events", queueName, body)
 			log.Printf("Leilão %s finalizado!", a.ID)
 		}(auction)
 	}
