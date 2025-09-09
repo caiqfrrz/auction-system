@@ -14,7 +14,7 @@ func main() {
 
 	msl := mslance.NewMSLance(ch)
 
-	msl.DeclareQueues()
+	msl.DeclareExchangeAndQueues()
 	msl.ListenLeilaoIniciado()
 	msl.ListenLanceRealizado()
 	msl.ListenLeilaoFinalizado()
