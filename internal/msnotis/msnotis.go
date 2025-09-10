@@ -58,6 +58,8 @@ func (m *MSNotis) ListenAndPublish() {
 					log.Printf("Error publishing to leilao events: %v", err)
 				}
 				log.Printf("Notificação de lance_validado publicada para %s", queueName)
+			} else {
+				log.Printf("error msnotis %v", err)
 			}
 		}
 	}()
