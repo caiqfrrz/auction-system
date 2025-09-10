@@ -27,3 +27,8 @@ type LeilaoVencedor struct {
 	UserID   string  `json:"user_id"`
 	Valor    float64 `json:"valor"`
 }
+
+type ClienteRegistrado struct {
+	UserID    string `json:"user_id"`
+	PublicKey string `json:"public_key"`
+}
