@@ -2,7 +2,13 @@ package mslance
 
 import (
 	"auction-system/pkg/models"
+	"crypto"
+	"crypto/rsa"
+	"crypto/sha256"
+	"crypto/x509"
+	"encoding/base64"
 	"encoding/json"
+	"encoding/pem"
 	"log"
 	"sync"
 
@@ -11,9 +17,7 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-// Simulação de chaves públicas dos clientes
-var publicKeys = map[string]string{
-	"user1": "publickey1"}
+var publicKeys = make(map[string]*rsa.PublicKey)
 
 type LeilaoStatus struct {
 	ID         string
@@ -54,6 +58,32 @@ func (m *MSLance) DeclareExchangeAndQueues() {
 
 	rabbitmq.DeclareQueue(m.ch, "leilao_vencedor")
 	rabbitmq.BindQueueToExchange(m.ch, "leilao_vencedor", "leilao.vencedor", "leilao_events")
+
+	rabbitmq.DeclareQueue(m.ch, "cliente_registrado")
+	rabbitmq.BindQueueToExchange(m.ch, "cliente_registrado", "cliente.registrado", "leilao_events")
+}
+
+func (m *MSLance) ListenClienteRegistrado() {
+	msgs, _ := m.ch.Consume("cliente_registrado", "", true, false, false, false, nil)
+	go func() {
+		for d := range msgs {
+			var cliente models.ClienteRegistrado
+			if err := json.Unmarshal(d.Body, &cliente); err == nil {
+				block, _ := pem.Decode([]byte(cliente.PublicKey))
+				if block != nil {
+					pub, err := x509.ParsePKIXPublicKey(block.Bytes)
+					if err == nil {
+						publicKeys[cliente.UserID] = pub.(*rsa.PublicKey)
+						log.Printf("Chave pública registrada para usuário: %s", cliente.UserID)
+					} else {
+						log.Printf("Erro ao parsear chave pública do usuário %s: %v", cliente.UserID, err)
+					}
+				}
+			} else {
+				log.Printf("Erro ao deserializar registro de cliente: %v", err)
+			}
+		}
+	}()
 }
 
 func (m *MSLance) ListenLeilaoIniciado() {
@@ -165,9 +195,22 @@ func (m *MSLance) ListenLeilaoFinalizado() {
 	}()
 }
 
-// Simulação de verificação de assinatura digital
 func verificaAssinatura(lance models.LanceRealizado) bool {
-	// Aqui você implementaria a verificação real usando a chave pública do usuário
-	// Por enquanto, retorna true para simular
-	return true
+	pub, exists := publicKeys[lance.UserID]
+	if !exists {
+		return false
+	}
+
+	lanceTemp := models.LanceRealizado{
+		LeilaoID:   lance.LeilaoID,
+		UserID:     lance.UserID,
+		Valor:      lance.Valor,
+		Assinatura: "",
+	}
+	message, _ := json.Marshal(lanceTemp)
+
+	hashed := sha256.Sum256(message)
+	signature, _ := base64.StdEncoding.DecodeString(lance.Assinatura)
+	err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, hashed[:], signature)
+	return err == nil
 }
