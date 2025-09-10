@@ -1,6 +1,7 @@
 package rabbitmq
 
 import (
+	"fmt"
 	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
@@ -88,18 +89,24 @@ func BindQueueToExchange(ch *amqp.Channel, name string, key string, exchange str
 	}
 }
 
-func PublishToExchange(ch *amqp.Channel, exchange string, key string, body []byte) {
+func PublishToExchange(ch *amqp.Channel, exchange string, key string, body []byte, ctype ...string) error {
+	contentType := "application/json"
+	if len(ctype) > 0 {
+		contentType = ctype[0]
+	}
 	err := ch.Publish(
 		exchange,
 		key,
 		false,
 		false,
 		amqp.Publishing{
-			ContentType: "application/json",
+			ContentType: contentType,
 			Body:        body,
 		},
 	)
 	if err != nil {
-		log.Printf("Error publishing to exchange %s: %v", exchange, err)
+		return fmt.Errorf("failed to publish to exchange %s: %w", exchange, err)
 	}
+
+	return nil
 }

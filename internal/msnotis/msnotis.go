@@ -76,7 +76,7 @@ func (m *MSNotis) ListenAndPublish() {
 				rabbitmq.DeclareQueue(m.ch, queueName)
 				rabbitmq.BindQueueToExchange(m.ch, queueName, queueName, "leilao_events")
 
-				humanMessage := fmt.Sprintf("🏆 Leilão %s finalizado! Vencedor: %s com lance de R$ %.2f", msg.LeilaoID, msg.UserID, msg.Valor)
+				Message := fmt.Sprintf("🏆 Leilão %s finalizado! Vencedor: %s com lance de R$ %.2f", msg.LeilaoID, msg.UserID, msg.Valor)
 				err := m.ch.Publish(
 					"leilao_events",
 					queueName,
@@ -84,7 +84,7 @@ func (m *MSNotis) ListenAndPublish() {
 					false,
 					amqp.Publishing{
 						ContentType: "application/json",
-						Body:        []byte(humanMessage),
+						Body:        []byte(Message),
 					},
 				)
 				if err != nil {

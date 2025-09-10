@@ -55,7 +55,26 @@ func (l *MsLeilao) Start() {
 		}(auction)
 
 		go func(a *Auction) {
-			time.Sleep(time.Until(a.Fim))
+			// aguarda até 1s antes do fim → mensagem 1
+			queueName := fmt.Sprintf("leilao_%s", a.ID)
+			time.Sleep(time.Until(a.Fim.Add(-3 * time.Second)))
+			msg1 := "DOLE UMA!"
+			body1, _ := json.Marshal(msg1)
+			rabbitmq.PublishToExchange(l.ch, "leilao_events", queueName, body1, "text/plain")
+
+			// aguarda até 1s antes do fim → mensagem 2
+			time.Sleep(1 * time.Second)
+			msg2 := "DOLE DUAS!"
+			body2, _ := json.Marshal(msg2)
+			rabbitmq.PublishToExchange(l.ch, "leilao_events", queueName, body2, "text/plain")
+
+			// chegou o fim → mensagem VENDIDO!!
+			time.Sleep(1 * time.Second)
+			a.Ativo = false
+			msg3 := "VENDIDO!!!!"
+			body3, _ := json.Marshal(msg3)
+			rabbitmq.PublishToExchange(l.ch, "leilao_events", queueName, body3, "text/plain")
+
 			a.Ativo = false
 			event := map[string]string{
 				"id":     a.ID,
