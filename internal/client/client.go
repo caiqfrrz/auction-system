@@ -55,9 +55,8 @@ func (c *Client) SendBid(auctionID string, value float64) {
 	}
 
 	body, _ := json.Marshal(bid)
-	rabbitmq.PublishToExchange(c.ch, "leilao_events", "lance.realizado", body)
-
 	c.ListenNotifications(auctionID)
+	rabbitmq.PublishToExchange(c.ch, "leilao_events", "lance.realizado", body)
 
 	c.gui.Update(func(g *gocui.Gui) error {
 		v, _ := g.View("notifications")
