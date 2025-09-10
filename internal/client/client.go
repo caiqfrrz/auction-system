@@ -3,6 +3,7 @@ package client
 import (
 	"auction-system/pkg/models"
 	"auction-system/pkg/rabbitmq"
+	"crypto"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/sha256"
@@ -40,7 +41,7 @@ func generateKeys() (*rsa.PrivateKey, *rsa.PublicKey) {
 
 func signMessage(priv *rsa.PrivateKey, message []byte) string {
 	hashed := sha256.Sum256(message)
-	signature, _ := rsa.SignPKCS1v15(rand.Reader, priv, 0, hashed[:])
+	signature, _ := rsa.SignPKCS1v15(rand.Reader, priv, crypto.SHA256, hashed[:])
 	return base64.StdEncoding.EncodeToString(signature)
 }
 
@@ -86,7 +87,7 @@ func (c *Client) SendBid(auctionID string, value float64) {
 
 	c.gui.Update(func(g *gocui.Gui) error {
 		v, _ := g.View("notifications")
-		fmt.Fprintf(v, "[Leilão %s] Você tentou por um lance: %.2f\n", auctionID, value)
+		fmt.Fprintf(v, "[\033[36mLeilão\033[0m \033[33m%s\033[0m] \033[32mVocê tentou por um lance:\033[0m %.2f\n", auctionID, value)
 		return nil
 	})
 }
@@ -125,7 +126,7 @@ func (c *Client) ListenNotifications(auctionID string) {
 		for d := range msgs {
 			c.gui.Update(func(g *gocui.Gui) error {
 				v, _ := g.View("notifications")
-				fmt.Fprintf(v, "[Leilão %s] %s\n", auctionID, string(d.Body))
+				fmt.Fprintf(v, "[\033[36mLeilão\033[0m \033[33m%s\033[0m] %s\n", auctionID, string(d.Body))
 				return nil
 			})
 		}
