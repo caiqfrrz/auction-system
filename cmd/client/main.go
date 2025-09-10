@@ -24,6 +24,7 @@ func main() {
 	defer ch.Close()
 
 	c := client.NewClient(ch, *userID)
+	c.RegisterPublicKey()
 
 	go c.ListenAuctions()
 
