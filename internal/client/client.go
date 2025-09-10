@@ -14,17 +14,24 @@ import (
 )
 
 type Client struct {
-	ch     *amqp.Channel
-	userID string
-	gui    *gocui.Gui
+	ch        *amqp.Channel
+	userID    string
+	gui       *gocui.Gui
+	listening map[string]bool // leilaoID -> true se já está ouvindo
 }
 
 func NewClient(ch *amqp.Channel, userID string) *Client {
-	return &Client{ch: ch, userID: userID}
+	return &Client{ch: ch, userID: userID, listening: make(map[string]bool)}
 }
 
 func (c *Client) ListenAuctions() {
-	q := rabbitmq.DeclareQueue(c.ch, "leilao_iniciado")
+	// Declara exchange (idempotente)
+	rabbitmq.DeclareExchange(c.ch, "leilao_events", "topic")
+	q := rabbitmq.DeclareTempQueue(c.ch)
+
+	// Faz o binding para receber todos os leilões iniciados
+	rabbitmq.BindQueueToExchange(c.ch, q.Name, "leilao.iniciado", "leilao_events")
+
 	msgs, _ := c.ch.Consume(q.Name, "", true, false, false, false, nil)
 
 	for d := range msgs {
@@ -48,27 +55,40 @@ func (c *Client) SendBid(auctionID string, value float64) {
 	}
 
 	body, _ := json.Marshal(bid)
-	rabbitmq.Publish(c.ch, "lance_realizado", body)
+	rabbitmq.PublishToExchange(c.ch, "leilao_events", "lance.realizado", body)
+
+	c.ListenNotifications(auctionID)
+
 	c.gui.Update(func(g *gocui.Gui) error {
 		v, _ := g.View("notifications")
-		fmt.Fprintf(v, "[Leilão %s] Você colocou um lance: %.2f\n", auctionID, value)
+		fmt.Fprintf(v, "[Leilão %s] Você tentou por um lance: %.2f\n", auctionID, value)
 		return nil
 	})
 }
 
 func (c *Client) ListenNotifications(auctionID string) {
+	if c.listening[auctionID] {
+		return // já está ouvindo esse leilão
+	}
+	c.listening[auctionID] = true
+
+	// Cria fila exclusiva para notificações desse leilão
+	q := rabbitmq.DeclareTempQueue(c.ch)
+
+	// Faz o binding para a fila leilao_{id}
 	queueName := fmt.Sprintf("leilao_%s", auctionID)
-	q := rabbitmq.DeclareQueue(c.ch, queueName)
+	rabbitmq.BindQueueToExchange(c.ch, q.Name, queueName, "leilao_events")
 
 	msgs, _ := c.ch.Consume(q.Name, "", true, false, false, false, nil)
-
-	for d := range msgs {
-		c.gui.Update(func(g *gocui.Gui) error {
-			v, _ := g.View("notifications")
-			fmt.Fprintf(v, "[Leilão %s] %s\n", auctionID, string(d.Body))
-			return nil
-		})
-	}
+	go func() {
+		for d := range msgs {
+			c.gui.Update(func(g *gocui.Gui) error {
+				v, _ := g.View("notifications")
+				fmt.Fprintf(v, "[Leilão %s] %s\n", auctionID, string(d.Body))
+				return nil
+			})
+		}
+	}()
 }
 
 func (c *Client) handleEnter(g *gocui.Gui, v *gocui.View) error {
@@ -83,6 +103,8 @@ func (c *Client) handleEnter(g *gocui.Gui, v *gocui.View) error {
 		if err == nil {
 			c.SendBid(auctionID, value)
 		}
+	} else if parts[0] == "q" {
+		return gocui.ErrQuit
 	}
 	return nil
 }

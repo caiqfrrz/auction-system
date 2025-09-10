@@ -1,7 +1,7 @@
 package main
 
 import (
-	"auction-system/internal/mslance"
+	"auction-system/internal/msnotis"
 	"auction-system/pkg/rabbitmq"
 	"os"
 	"os/signal"
@@ -12,12 +12,9 @@ func main() {
 	defer conn.Close()
 	defer ch.Close()
 
-	msl := mslance.NewMSLance(ch)
-
-	msl.DeclareExchangeAndQueues()
-	msl.ListenLeilaoIniciado()
-	msl.ListenLanceRealizado()
-	msl.ListenLeilaoFinalizado()
+	notis := msnotis.NewMSNotis(ch)
+	notis.DeclareExchangeAndQueues()
+	notis.ListenAndPublish()
 
 	forever := make(chan os.Signal, 1)
 	signal.Notify(forever, os.Interrupt)

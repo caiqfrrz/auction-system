@@ -2,10 +2,11 @@ package mslance
 
 import (
 	"auction-system/pkg/models"
-	"auction-system/pkg/rabbitmq"
 	"encoding/json"
 	"log"
 	"sync"
+
+	"auction-system/pkg/rabbitmq"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -35,16 +36,24 @@ func NewMSLance(ch *amqp.Channel) *MSLance {
 	}
 }
 
-var leiloes = make(map[string]*LeilaoStatus)
-var leiloesMu sync.Mutex
+// Inicializa a exchange e faz o binding das filas
+func (m *MSLance) DeclareExchangeAndQueues() {
+	rabbitmq.DeclareExchange(m.ch, "leilao_events", "topic")
 
-// Inicializa as filas necessárias
-func (m *MSLance) DeclareQueues() {
 	rabbitmq.DeclareQueue(m.ch, "lance_realizado")
+	rabbitmq.BindQueueToExchange(m.ch, "lance_realizado", "lance.realizado", "leilao_events")
+
 	rabbitmq.DeclareQueue(m.ch, "leilao_iniciado")
+	rabbitmq.BindQueueToExchange(m.ch, "leilao_iniciado", "leilao.iniciado", "leilao_events")
+
 	rabbitmq.DeclareQueue(m.ch, "leilao_finalizado")
+	rabbitmq.BindQueueToExchange(m.ch, "leilao_finalizado", "leilao.finalizado", "leilao_events")
+
 	rabbitmq.DeclareQueue(m.ch, "lance_validado")
+	rabbitmq.BindQueueToExchange(m.ch, "lance_validado", "lance.validado", "leilao_events")
+
 	rabbitmq.DeclareQueue(m.ch, "leilao_vencedor")
+	rabbitmq.BindQueueToExchange(m.ch, "leilao_vencedor", "leilao.vencedor", "leilao_events")
 }
 
 func (m *MSLance) ListenLeilaoIniciado() {
@@ -55,9 +64,10 @@ func (m *MSLance) ListenLeilaoIniciado() {
 			if err := json.Unmarshal(d.Body, &leilao); err == nil {
 				m.mu.Lock()
 				m.leiloes[leilao.ID] = &LeilaoStatus{
-					ID:        leilao.ID,
-					Descricao: leilao.Descricao,
-					Ativo:     true,
+					ID:         leilao.ID,
+					Descricao:  leilao.Descricao,
+					Ativo:      true,
+					MaiorLance: 0,
 				}
 				m.mu.Unlock()
 				log.Printf("Leilão iniciado: %s (%s)", leilao.Descricao, leilao.ID)
@@ -70,6 +80,7 @@ func (m *MSLance) ListenLanceRealizado() {
 	msgs, _ := m.ch.Consume("lance_realizado", "", true, false, false, false, nil)
 	go func() {
 		for d := range msgs {
+			log.Printf("mensgaem recebida")
 			var lance models.LanceRealizado
 			if err := json.Unmarshal(d.Body, &lance); err != nil {
 				log.Printf("Lance inválido (json): %v", err)
@@ -99,7 +110,16 @@ func (m *MSLance) ListenLanceRealizado() {
 					Valor:    lance.Valor,
 				}
 				body, _ := json.Marshal(validado)
-				rabbitmq.Publish(m.ch, "lance_validado", body)
+				m.ch.Publish(
+					"leilao_events",
+					"lance.validado",
+					false,
+					false,
+					amqp.Publishing{
+						ContentType: "application/json",
+						Body:        body,
+					},
+				)
 				log.Printf("Lance validado: %+v", validado)
 			} else {
 				m.mu.Unlock()
@@ -127,7 +147,16 @@ func (m *MSLance) ListenLeilaoFinalizado() {
 						Valor:    leilao.MaiorLance,
 					}
 					body, _ := json.Marshal(vencedor)
-					rabbitmq.Publish(m.ch, "leilao_vencedor", body)
+					m.ch.Publish(
+						"leilao_events",
+						"leilao.vencedor",
+						false,
+						false,
+						amqp.Publishing{
+							ContentType: "application/json",
+							Body:        body,
+						},
+					)
 					log.Printf("Leilão %s finalizado. Vencedor: %s (%.2f)", leilao.ID, leilao.Vencedor, leilao.MaiorLance)
 				}
 				m.mu.Unlock()
