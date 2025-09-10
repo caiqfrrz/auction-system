@@ -81,9 +81,8 @@ func (c *Client) SendBid(auctionID string, value float64) {
 
 	bodyWithSignature, _ := json.Marshal(bid)
 
-	rabbitmq.PublishToExchange(c.ch, "leilao_events", "lance.realizado", bodyWithSignature)
-
 	c.ListenNotifications(auctionID)
+	rabbitmq.PublishToExchange(c.ch, "leilao_events", "lance.realizado", bodyWithSignature)
 
 	c.gui.Update(func(g *gocui.Gui) error {
 		v, _ := g.View("notifications")
@@ -174,7 +173,7 @@ func (c *Client) Layout(g *gocui.Gui) error {
 		if err != gocui.ErrUnknownView {
 			return err
 		}
-		v.Title = "Para fazer lances: <leilão-id> <valor> (ENTER to bid)"
+		v.Title = "Para fazer lances: <leilão-id> <valor> (ENTER para lançar, q + ENTER para sair)"
 		v.Editable = true
 		if _, err := g.SetCurrentView("input"); err != nil {
 			return err

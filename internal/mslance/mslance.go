@@ -98,6 +98,7 @@ func (m *MSLance) ListenLeilaoIniciado() {
 					Descricao:  leilao.Descricao,
 					Ativo:      true,
 					MaiorLance: 0,
+					Vencedor:   "",
 				}
 				m.mu.Unlock()
 				log.Printf("Leilão iniciado: %s (%s)", leilao.Descricao, leilao.ID)
