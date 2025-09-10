@@ -27,8 +27,8 @@ type MsLeilao struct {
 func NewMsLeilao(ch *amqp.Channel) *MsLeilao {
 	now := time.Now()
 	auctions := []Auction{
-		{ID: "1", Descricao: "Almoço no RU", Inicio: now.Add(10 * time.Second), Fim: now.Add(30 * time.Second), Ativo: false},
-		{ID: "2", Descricao: "Monalisa", Inicio: now.Add(20 * time.Second), Fim: now.Add(50 * time.Second), Ativo: false},
+		{ID: "1", Descricao: "Almoço no RU", Inicio: now.Add(2 * time.Second), Fim: now.Add(50 * time.Second), Ativo: false},
+		{ID: "2", Descricao: "Monalisa", Inicio: now.Add(20 * time.Second), Fim: now.Add(500 * time.Second), Ativo: false},
 	}
 
 	return &MsLeilao{ch: ch, auctions: auctions}
@@ -65,8 +65,6 @@ func (l *MsLeilao) Start() {
 			// Publica na exchange com routing key
 			rabbitmq.PublishToExchange(l.ch, "leilao_events", "leilao.finalizado", body)
 
-			queueName := fmt.Sprintf("leilao_%s", a.ID)
-			rabbitmq.PublishToExchange(l.ch, "leilao_events", queueName, body)
 			log.Printf("Leilão %s finalizado!", a.ID)
 		}(auction)
 	}

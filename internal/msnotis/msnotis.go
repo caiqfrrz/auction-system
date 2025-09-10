@@ -34,13 +34,29 @@ func (m *MSNotis) ListenAndPublish() {
 	go func() {
 		for d := range msgsLance {
 			var msg struct {
-				LeilaoID string `json:"leilao_id"`
+				LeilaoID string  `json:"leilao_id"`
+				UserID   string  `json:"user_id"`
+				Valor    float64 `json:"valor"`
 			}
 			if err := json.Unmarshal(d.Body, &msg); err == nil && msg.LeilaoID != "" {
 				queueName := fmt.Sprintf("leilao_%s", msg.LeilaoID)
 				rabbitmq.DeclareQueue(m.ch, queueName)
 				rabbitmq.BindQueueToExchange(m.ch, queueName, queueName, "leilao_events")
-				rabbitmq.PublishToExchange(m.ch, "leilao_events", queueName, d.Body)
+
+				humanMessage := fmt.Sprintf("💰 Novo lance válido de R$ %.2f pelo usuário %s", msg.Valor, msg.UserID)
+				err := m.ch.Publish(
+					"leilao_events",
+					queueName,
+					false,
+					false,
+					amqp.Publishing{
+						ContentType: "application/json",
+						Body:        []byte(humanMessage),
+					},
+				)
+				if err != nil {
+					log.Printf("Error publishing to leilao events: %v", err)
+				}
 				log.Printf("Notificação de lance_validado publicada para %s", queueName)
 			}
 		}
@@ -49,13 +65,29 @@ func (m *MSNotis) ListenAndPublish() {
 	go func() {
 		for d := range msgsVencedor {
 			var msg struct {
-				LeilaoID string `json:"leilao_id"`
+				LeilaoID string  `json:"leilao_id"`
+				UserID   string  `json:"user_id"`
+				Valor    float64 `json:"valor"`
 			}
 			if err := json.Unmarshal(d.Body, &msg); err == nil && msg.LeilaoID != "" {
 				queueName := fmt.Sprintf("leilao_%s", msg.LeilaoID)
 				rabbitmq.DeclareQueue(m.ch, queueName)
 				rabbitmq.BindQueueToExchange(m.ch, queueName, queueName, "leilao_events")
-				rabbitmq.PublishToExchange(m.ch, "leilao_events", queueName, d.Body)
+
+				humanMessage := fmt.Sprintf("🏆 Leilão %s finalizado! Vencedor: %s com lance de R$ %.2f", msg.LeilaoID, msg.UserID, msg.Valor)
+				err := m.ch.Publish(
+					"leilao_events",
+					queueName,
+					false,
+					false,
+					amqp.Publishing{
+						ContentType: "application/json",
+						Body:        []byte(humanMessage),
+					},
+				)
+				if err != nil {
+					log.Printf("Error publishing to leilao events: %v", err)
+				}
 				log.Printf("Notificação de leilao_vencedor publicada para %s", queueName)
 			}
 		}

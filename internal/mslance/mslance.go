@@ -64,9 +64,10 @@ func (m *MSLance) ListenLeilaoIniciado() {
 			if err := json.Unmarshal(d.Body, &leilao); err == nil {
 				m.mu.Lock()
 				m.leiloes[leilao.ID] = &LeilaoStatus{
-					ID:        leilao.ID,
-					Descricao: leilao.Descricao,
-					Ativo:     true,
+					ID:         leilao.ID,
+					Descricao:  leilao.Descricao,
+					Ativo:      true,
+					MaiorLance: 0,
 				}
 				m.mu.Unlock()
 				log.Printf("Leilão iniciado: %s (%s)", leilao.Descricao, leilao.ID)
@@ -79,6 +80,7 @@ func (m *MSLance) ListenLanceRealizado() {
 	msgs, _ := m.ch.Consume("lance_realizado", "", true, false, false, false, nil)
 	go func() {
 		for d := range msgs {
+			log.Printf("mensgaem recebida")
 			var lance models.LanceRealizado
 			if err := json.Unmarshal(d.Body, &lance); err != nil {
 				log.Printf("Lance inválido (json): %v", err)
