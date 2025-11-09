@@ -6,17 +6,18 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Auction struct {
-	ID        string
-	Descricao string
-	Inicio    time.Time
-	Fim       time.Time
-	Ativo     bool
+	ID        string    `json:"id"`
+	Descricao string    `json:"descricao"`
+	Inicio    time.Time `json:"inicio"`
+	Fim       time.Time `json:"fim"`
+	Ativo     bool      `json:"ativo"`
 }
 
 type MsLeilao struct {
@@ -25,13 +26,37 @@ type MsLeilao struct {
 }
 
 func NewMsLeilao(ch *amqp.Channel) *MsLeilao {
-	now := time.Now()
+	// now := time.Now()
 	auctions := []Auction{
-		{ID: "1", Descricao: "Almoço no RU", Inicio: now.Add(2 * time.Second), Fim: now.Add(50 * time.Second), Ativo: false},
-		{ID: "2", Descricao: "Monalisa", Inicio: now.Add(20 * time.Second), Fim: now.Add(500 * time.Second), Ativo: false},
+		// {ID: "1", Descricao: "Almoço no RU", Inicio: now.Add(2 * time.Second), Fim: now.Add(50 * time.Second), Ativo: false},
+		// {ID: "2", Descricao: "Monalisa", Inicio: now.Add(20 * time.Second), Fim: now.Add(40 * time.Second), Ativo: false},
 	}
 
 	return &MsLeilao{ch: ch, auctions: auctions}
+}
+
+func (l *MsLeilao) CreateAuction(auction Auction) error {
+	now := time.Now()
+
+	if strings.TrimSpace(auction.Descricao) == "" {
+		return fmt.Errorf("description cannot be empty")
+	}
+
+	if auction.Inicio.Before(now) {
+		return fmt.Errorf("start time cannot be in the past")
+	}
+
+	if auction.Fim.Before(now) {
+		return fmt.Errorf("end time cannot be in the past")
+	}
+
+	l.auctions = append(l.auctions, auction)
+
+	return nil
+}
+
+func (l *MsLeilao) ConsultAuctions() []Auction {
+	return l.auctions
 }
 
 func (l *MsLeilao) Start() {

@@ -111,7 +111,6 @@ func (m *MSLance) ListenLanceRealizado() {
 	msgs, _ := m.ch.Consume("lance_realizado", "", true, false, false, false, nil)
 	go func() {
 		for d := range msgs {
-			log.Printf("mensgaem recebida")
 			var lance models.LanceRealizado
 			if err := json.Unmarshal(d.Body, &lance); err != nil {
 				log.Printf("Lance inválido (json): %v", err)
