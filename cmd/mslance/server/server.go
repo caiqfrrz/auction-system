@@ -22,11 +22,18 @@ func NewServer(ch *amqp.Channel) *http.Server {
 	}
 
 	server := &http.Server{
+		Addr:         ":8082",
 		Handler:      NewServer.registerRoutes(),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
+
+	msLance.DeclareExchangeAndQueues()
+	msLance.ListenClienteRegistrado()
+	msLance.ListenLeilaoIniciado()
+	msLance.ListenLanceRealizado()
+	msLance.ListenLeilaoFinalizado()
 
 	return server
 }

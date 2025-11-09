@@ -23,6 +23,7 @@ func NewServer(ch *amqp.Channel) *http.Server {
 	}
 
 	server := &http.Server{
+		Addr:         ":8081",
 		Handler:      NewServer.registerRoutes(),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,

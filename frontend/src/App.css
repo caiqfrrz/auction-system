@@ -11,3 +11,9 @@
   margin-top: 20px;
   margin-left: 20px;
 }
+
+.auction-container {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}

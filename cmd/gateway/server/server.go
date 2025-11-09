@@ -1,14 +1,12 @@
 package server
 
 import (
-	"auction-system/internal/gateway"
 	"fmt"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
 
-	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 )
 
@@ -43,18 +41,25 @@ func NewServer() *http.Server {
 func (s *Server) registerRoutes() http.Handler {
 	r := gin.Default()
 
-	r.Use(cors.New(cors.Config{
-		AllowOrigins:     []string{"http://localhost:5173"},
-		AllowMethods:     []string{"GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"},
-		AllowHeaders:     []string{"Accept", "Authorization", "Content-Type"},
-		AllowCredentials: true, // Enable cookies/auth
-	}))
+	r.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "http://localhost:5173")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+		c.Header("Access-Control-Allow-Credentials", "true")
 
-	r.GET("/consult-auctions", gateway.ConsultAuctions)
-	r.POST("/create-auction", gateway.CreateAuction)
-	r.POST("/make-bid", gateway.PlaceBid)
-	r.POST("/register-interest", gateway.RegisterInterest)
-	r.POST("/cancel-interest", gateway.CancelInterest)
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(204)
+			return
+		}
+
+		c.Next()
+	})
+
+	r.GET("/consult-auctions", s.ConsultAuctions)
+	r.POST("/create-auction", s.CreateAuction)
+	r.POST("/make-bid", s.PlaceBid)
+	r.POST("/register-interest", s.RegisterInterest)
+	r.POST("/cancel-interest", s.CancelInterest)
 
 	return r
 }
