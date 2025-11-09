@@ -1,0 +1,13 @@
+
+.header {
+  background-color: rgb(17, 17, 17);
+  height: 90px;
+  padding-top: 10px;
+  padding-bottom: 10px;
+  margin-left: -20px;
+}
+
+.title {
+  margin-top: 20px;
+  margin-left: 20px;
+}

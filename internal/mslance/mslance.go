@@ -63,6 +63,16 @@ func (m *MSLance) DeclareExchangeAndQueues() {
 	rabbitmq.BindQueueToExchange(m.ch, "cliente_registrado", "cliente.registrado", "leilao_events")
 }
 
+func (m *MSLance) MakeBid(bid models.LanceRealizado) error {
+	bidByte, err := json.Marshal(bid)
+	if err != nil {
+		return err
+	}
+
+	rabbitmq.PublishToExchange(m.ch, "leilao_events", "lance.realizado", bidByte)
+	return nil
+}
+
 func (m *MSLance) ListenClienteRegistrado() {
 	msgs, _ := m.ch.Consume("cliente_registrado", "", true, false, false, false, nil)
 	go func() {
