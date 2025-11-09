@@ -1,7 +1,7 @@
 package server
 
 import (
-	"auction-system/internal/msleilao"
+	"auction-system/internal/mslance"
 	"net/http"
 	"time"
 
@@ -11,23 +11,29 @@ import (
 )
 
 type Server struct {
-	msLeilao *msleilao.MsLeilao
+	msLance *mslance.MSLance
 }
 
 func NewServer(ch *amqp.Channel) *http.Server {
-	msLeilao := msleilao.NewMsLeilao(ch)
-	msLeilao.Start()
+	msLance := mslance.NewMSLance(ch)
 
 	NewServer := &Server{
-		msLeilao: msLeilao,
+		msLance: msLance,
 	}
 
 	server := &http.Server{
+		Addr:         ":8082",
 		Handler:      NewServer.registerRoutes(),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
+
+	msLance.DeclareExchangeAndQueues()
+	msLance.ListenClienteRegistrado()
+	msLance.ListenLeilaoIniciado()
+	msLance.ListenLanceRealizado()
+	msLance.ListenLeilaoFinalizado()
 
 	return server
 }
