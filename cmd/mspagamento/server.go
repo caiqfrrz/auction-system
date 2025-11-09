@@ -46,7 +46,7 @@ func (s *Server) registerRoutes() http.Handler {
 		AllowCredentials: true, // Enable cookies/auth
 	}))
 
-	r.POST("/submit-payment-data", mspagamentos.SubmitPaymentDataHandler)
+	r.POST("/submit-payment-data", s.SubmitPaymentData)
 
 	return r
 }

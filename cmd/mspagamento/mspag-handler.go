@@ -7,12 +7,12 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func (s *Server) CreateAuction(c *gin.Context) {
-	createAuctionReq, _ := http.NewRequest("POST", fmt.Sprintf("%s/create-auction", s.paymentHost), c.Request.Body)
+func (s *Server) SubmitPaymentData(c *gin.Context) {
+	SubmitPaymentDataReq, _ := http.NewRequest("POST", fmt.Sprintf("http://%s/create-auction", s.paymentHost), c.Request.Body)
 
-	createAuctionResp, err := http.DefaultClient.Do(createAuctionReq)
-	if err != nil || createAuctionResp.StatusCode != http.StatusOK {
-		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Failed to create auction: %s", createAuctionResp.Body)})
+	SubmitPaymentDataResp, err := http.DefaultClient.Do(SubmitPaymentDataReq)
+	if err != nil || SubmitPaymentDataResp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Failed to create auction: %s", SubmitPaymentDataResp.Body)})
 		return
 	}
 
