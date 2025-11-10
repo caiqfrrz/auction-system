@@ -1,22 +1,32 @@
 package mspagamento
 
 import (
-	"auction-system/pkg/models"
-	amqp "github.com/rabbitmq/amqp091-go"
 	"auction-system/internal/rabbitmq"
+	"auction-system/pkg/models"
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
-	"bytes"
-	"fmt"	
+
+	"github.com/gin-gonic/gin"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type MsPagamento struct {
-    ch             *amqp.Channel
-    externalPayURL string
-    publicURL      string // usado para montar callback (ex: http://host:port)
-    queueName      string
-    httpAddr       string // endereco para expor webhook (ex ":8081")
+	ch             *amqp.Channel
+	externalPayURL string
+	publicURL      string // usado para montar callback (ex: http://host:port)
+	queueName      string
+	httpAddr       string // endereco para expor webhook (ex ":8081")
+}
+
+type PaymentRequest struct {
+	Amount      float64           `json:"amount"`
+    Currency    string            `json:"currency"`
+    Customer    map[string]string `json:"customer"`
+    CallbackURL string            `json:"callback_url"`
+    AuctionID   string            `json:"auction_id"`
+    WinnerID    string            `json:"winner_id"`
 }
 
 func NewMsPagamento(ch *amqp.Channel, externalPayURL, publicURL, queueName, httpAddr string) *MsPagamento {
@@ -25,7 +35,7 @@ func NewMsPagamento(ch *amqp.Channel, externalPayURL, publicURL, queueName, http
 		externalPayURL: externalPayURL,
 		publicURL:      publicURL,
 		queueName:      queueName,
-		httpAddr:       ":8081",
+		httpAddr:       ":8084",
 	}
 }
 
@@ -38,20 +48,36 @@ func (m *MsPagamento) DeclareExchangeAndQueues() {
 
 	rabbitmq.DeclareQueue(m.ch, "link_pagamento")
 	rabbitmq.BindQueueToExchange(m.ch, "link_pagamento", "link_pagamento", "ms_pagamentos")
+
+	rabbitmq.DeclareQueue(m.ch, "status_pagamento,")
+	rabbitmq.BindQueueToExchange(m.ch, "status_pagamento", "status_pagamento", "ms_pagamentos")
 }
 
-func(m* MsPagamento) Listenleilao_vencedor(){
+func (m *MsPagamento) Listenleilao_vencedor() {
 	msgs, _ := m.ch.Consume("leilao_vencedor", "", true, false, false, false, nil)
 	go func() {
 		for d := range msgs {
 			var leilao models.LeilaoVencedor
 			if err := json.Unmarshal(d.Body, &leilao); err == nil {
-				// uma requisição REST ao sistema externo de pagamentos enviando os dados do pagamento 
-				// (valor, moeda, informações do cliente) e, então, receberá um link de
-				//pagamento que será publicado em link_pagamento.
-				}
-				log.Printf("requisição REST payment ao sistema de pagamento enviada: usuário %s (valor %s)", leilao.UserID, leilao.Valor)
+				m.SubmitPaymentData()
 			}
-		}()
+			log.Printf("requisição REST payment ao sistema de pagamento enviada: usuário %s (valor %s)", leilao.UserID, leilao.Valor)
+		}
+	}()
 }
-		
+func (m *MsPagamento) Start() {
+	m.DeclareExchangeAndQueues()
+	m.Listenleilao_vencedor()
+}
+
+func (m *MsPagamento) SubmitPaymentData(c *gin.Context) {
+	SubmitPaymentDataReq, _ := http.NewRequest("POST", fmt.Sprintf("http://%s/create-auction", m.externalPayURL), c.Request.Body)
+
+	SubmitPaymentDataResp, err := http.DefaultClient.Do(SubmitPaymentDataReq)
+	if err != nil || SubmitPaymentDataResp.StatusCode != http.StatusOK {
+		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Failed to create auction: %s", SubmitPaymentDataResp.Body)})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{"status": "success"})
+}

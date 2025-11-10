@@ -10,23 +10,23 @@ import (
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
+	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Server struct {
-	port         int
-	paymentHost  string
+	msPagamento *mspagamento.MsPagamento
 }
-func NewServer() *http.Server {
-	port, _ := strconv.Atoi(os.Getenv("PORT"))
-	payHost := os.Getenv("PAY_HOST")
+
+func NewServer(ch *amqp.Channel) *http.Server {
+	msPagamento := mspagamento.NewMsPagamento(ch)
+	msPagamento.Start()
 
 	NewServer := &Server{
-		port:         port,
-		paymentHost:  payHost,
+		msPagamento: msPagamento,
 	}
 
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%d", NewServer.port),
+		Addr:         ":8083",
 		Handler:      NewServer.registerRoutes(),
 		IdleTimeout:  time.Minute,
 		ReadTimeout:  10 * time.Second,
