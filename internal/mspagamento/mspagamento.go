@@ -1,7 +1,7 @@
 package mspagamento
 
 import (
-	"auction-system/internal/rabbitmq"
+	"auction-system/pkg/rabbitmq"
 	"auction-system/pkg/models"
 	"encoding/json"
 	"fmt"
@@ -62,7 +62,7 @@ func (m *MsPagamento) DeclareExchangeAndQueues() {
 	rabbitmq.DeclareQueue(m.ch, "link_pagamento")
 	rabbitmq.BindQueueToExchange(m.ch, "link_pagamento", "link_pagamento", "ms_pagamentos")
 
-	rabbitmq.DeclareQueue(m.ch, "status_pagamento,")
+	rabbitmq.DeclareQueue(m.ch, "status_pagamento")
 	rabbitmq.BindQueueToExchange(m.ch, "status_pagamento", "status_pagamento", "ms_pagamentos")
 }
 
