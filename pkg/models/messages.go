@@ -10,10 +10,9 @@ type LeilaoIniciado struct {
 }
 
 type LanceRealizado struct {
-	LeilaoID   string  `json:"leilao_id"`
-	UserID     string  `json:"user_id"`
-	Valor      float64 `json:"valor"`
-	Assinatura string  `json:"assinatura"`
+	LeilaoID string  `json:"leilao_id"`
+	UserID   string  `json:"user_id"`
+	Valor    float64 `json:"valor"`
 }
 
 type LanceValidado struct {

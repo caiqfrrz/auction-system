@@ -9,24 +9,38 @@ export const api = async (
         ...(options.headers as Record<string, string> || {})
     };
 
-    const res = await fetch(`${BASE_URL}${path}`, {
-        ...options,
-        headers,
-    });
+    try {
+        const res = await fetch(`${BASE_URL}${path}`, {
+            ...options,
+            headers,
+        });
 
-    const json = await res.json();
+        let json;
+        try {
+            json = await res.json();
+        } catch (e) {
+            const text = await res.text();
+            json = { error: text || "Invalid response from server" };
+        }
 
-    if (!res.ok) {
-      const errorMessage = json.message || json.error || "Unknown error";
-      const error = new Error(errorMessage);
+        if (!res.ok) {
+            const errorMessage = json.error || json.message || json.details || `HTTP ${res.status}`;
+            const errorDetails = json.details || "";
+            
+            console.error("API Error:", {
+                status: res.status,
+                path,
+                body: json,
+            });
+            
+            throw new Error(errorDetails ? `${errorMessage}: ${errorDetails}` : errorMessage);
+        }
 
-      if (json.error_code) {
-          (error as any).error_code = json.error_code;
-      }
-
-      (error as any).response = json;
-      throw error;
+        return json;
+    } catch (error) {
+        if (error instanceof Error) {
+            throw error;
+        }
+        throw new Error("Network error or invalid response");
     }
-
-    return json;
 }
