@@ -5,4 +5,5 @@ export type Auction = {
     description: string;
     start: Date;
     end: Date;
+    active: boolean;
 }

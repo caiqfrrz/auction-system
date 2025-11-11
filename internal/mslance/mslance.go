@@ -2,11 +2,11 @@ package mslance
 
 import (
 	"auction-system/pkg/models"
-	"crypto"
+
 	"crypto/rsa"
-	"crypto/sha256"
+
 	"crypto/x509"
-	"encoding/base64"
+
 	"encoding/json"
 	"encoding/pem"
 	"log"
@@ -127,11 +127,6 @@ func (m *MSLance) ListenLanceRealizado() {
 				continue
 			}
 
-			if !verificaAssinatura(lance) {
-				log.Printf("Assinatura inválida para lance de %s", lance.UserID)
-				continue
-			}
-
 			m.mu.Lock()
 			leilao, ok := m.leiloes[lance.LeilaoID]
 			if !ok || !leilao.Ativo {
@@ -203,24 +198,4 @@ func (m *MSLance) ListenLeilaoFinalizado() {
 			}
 		}
 	}()
-}
-
-func verificaAssinatura(lance models.LanceRealizado) bool {
-	pub, exists := publicKeys[lance.UserID]
-	if !exists {
-		return false
-	}
-
-	lanceTemp := models.LanceRealizado{
-		LeilaoID:   lance.LeilaoID,
-		UserID:     lance.UserID,
-		Valor:      lance.Valor,
-		Assinatura: "",
-	}
-	message, _ := json.Marshal(lanceTemp)
-
-	hashed := sha256.Sum256(message)
-	signature, _ := base64.StdEncoding.DecodeString(lance.Assinatura)
-	err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, hashed[:], signature)
-	return err == nil
 }

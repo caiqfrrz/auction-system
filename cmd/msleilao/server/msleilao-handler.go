@@ -1,9 +1,9 @@
 package server
 
 import (
-	"auction-system/internal/msleilao"
 	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 )
@@ -15,14 +15,36 @@ func (s *Server) ConsultAuctions(c *gin.Context) {
 }
 
 func (s *Server) CreateAuction(c *gin.Context) {
-	var newAuction msleilao.Auction
+	var newAuction struct {
+		Descricao string `json:"description"`
+		Inicio    string `json:"start"`
+		Fim       string `json:"end"`
+	}
 
 	if err := c.ShouldBindJSON(&newAuction); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "bad auction format"})
 		return
 	}
 
-	if err := s.msLeilao.CreateAuction(newAuction); err != nil {
+	inicio, err := time.Parse(time.RFC3339, newAuction.Inicio)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid start date format",
+			"details": "Expected ISO 8601 format (e.g., 2024-01-15T10:00:00Z)",
+		})
+		return
+	}
+
+	fim, err := time.Parse(time.RFC3339, newAuction.Fim)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "Invalid end date format",
+			"details": "Expected ISO 8601 format (e.g., 2024-01-15T12:00:00Z)",
+		})
+		return
+	}
+
+	if err := s.msLeilao.CreateAuction(newAuction.Descricao, inicio, fim); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("error creating auction: %s", err.Error())})
 		return
 	}
