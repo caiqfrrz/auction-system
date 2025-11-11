@@ -4,11 +4,19 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"log"
 	"math/rand"
 	"net/http"
+	"sync"
 	"time"
 )
+
+// In-memory store of pending payments
+var payments = struct {
+	sync.RWMutex
+	data map[string]PaymentRequest
+}{data: make(map[string]PaymentRequest)}
 
 type PaymentRequest struct {
 	Amount      float64           `json:"amount"`
@@ -32,6 +40,18 @@ type PaymentStatusWebhook struct {
 	Amount        float64 `json:"amount"`
 }
 
+func main() {
+	rand.Seed(time.Now().UnixNano())
+
+	http.HandleFunc("/payment", handlePayment)         // POST from MS Pagamento
+	http.HandleFunc("/pay/", handlePaymentPage)        // GET page for user to click Pay/Cancel
+	http.HandleFunc("/complete/", handlePaymentAction) // POST from HTML form
+
+	log.Println("[PAGEXTERNO] Servidor ouvindo em :8085")
+	http.ListenAndServe(":8085", nil)
+}
+
+// Called by MS Pagamento
 func handlePayment(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
@@ -44,10 +64,12 @@ func handlePayment(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Printf("[PAGEXTERNO] Nova requisição de pagamento: %+v", req)
-
 	txID := generateTransactionID()
-	paymentLink := fmt.Sprintf("https://pay.example.com/%s", txID)
+	payments.Lock()
+	payments.data[txID] = req
+	payments.Unlock()
+
+	paymentLink := fmt.Sprintf("http://localhost:8085/pay/%s", txID)
 
 	resp := PaymentResponse{
 		PaymentLink:   paymentLink,
@@ -56,21 +78,75 @@ func handlePayment(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(resp)
 
-	// processamento assíncrono (simulado)
-	go func() {
-		time.Sleep(3 * time.Second)
-		status := []string{"approved", "rejected"}[rand.Intn(2)]
-		notify := PaymentStatusWebhook{
-			TransactionID: txID,
-			Status:        status,
-			AuctionID:     req.AuctionID,
-			WinnerID:      req.WinnerID,
-			Amount:        req.Amount,
-		}
-		if err := sendPaymentStatusWebhook(req.CallbackURL, notify); err != nil {
-			log.Println("Erro ao enviar webhook:", err)
-		}
-	}()
+	log.Printf("[PAGEXTERNO] Nova transação criada: %s (%.2f %s) \n%s", txID, req.Amount, req.Currency, paymentLink)
+}
+
+// Renders the payment page (HTML)
+func handlePaymentPage(w http.ResponseWriter, r *http.Request) {
+	txID := r.URL.Path[len("/pay/"):]
+	payments.RLock()
+	req, ok := payments.data[txID]
+	payments.RUnlock()
+
+	if !ok {
+		http.NotFound(w, r)
+		return
+	}
+
+	tmpl := `
+	<html>
+		<head><title>Pagamento {{.TxID}}</title></head>
+		<body style="font-family:sans-serif; text-align:center; margin-top:40px;">
+			<h2>Pagamento do Leilão {{.AuctionID}}</h2>
+			<p><b>Valor:</b> R$ {{printf "%.2f" .Amount}}</p>
+			<p><b>Cliente:</b> {{.WinnerID}}</p>
+			<form action="/complete/{{.TxID}}" method="POST" style="margin-top:20px;">
+				<button name="status" value="approved" style="padding:10px 20px; background:green; color:white; border:none;">Pagar</button>
+				<button name="status" value="rejected" style="padding:10px 20px; background:red; color:white; border:none;">Cancelar</button>
+			</form>
+		</body>
+	</html>`
+
+	t := template.Must(template.New("payment").Parse(tmpl))
+	t.Execute(w, map[string]interface{}{
+		"TxID":      txID,
+		"AuctionID": req.AuctionID,
+		"Amount":    req.Amount,
+		"WinnerID":  req.WinnerID,
+	})
+}
+
+// Called when user clicks Pay/Cancel
+func handlePaymentAction(w http.ResponseWriter, r *http.Request) {
+	txID := r.URL.Path[len("/complete/"):]
+	status := r.FormValue("status")
+
+	payments.RLock()
+	req, ok := payments.data[txID]
+	payments.RUnlock()
+
+	if !ok {
+		http.Error(w, "transaction not found", http.StatusNotFound)
+		return
+	}
+
+	notify := PaymentStatusWebhook{
+		TransactionID: txID,
+		Status:        status,
+		AuctionID:     req.AuctionID,
+		WinnerID:      req.WinnerID,
+		Amount:        req.Amount,
+	}
+
+	// Send webhook back to MS Pagamento
+	if err := sendPaymentStatusWebhook(req.CallbackURL, notify); err != nil {
+		log.Println("Erro ao enviar webhook:", err)
+		http.Error(w, "Erro ao enviar webhook", 500)
+		return
+	}
+
+	fmt.Fprintf(w, "<h3>Pagamento %s com sucesso!</h3>", status)
+	delete(payments.data, txID)
 }
 
 func sendPaymentStatusWebhook(targetURL string, payload PaymentStatusWebhook) error {
@@ -85,17 +161,10 @@ func sendPaymentStatusWebhook(targetURL string, payload PaymentStatusWebhook) er
 		return fmt.Errorf("webhook returned %s", resp.Status)
 	}
 
-	log.Printf("[PAGEXTERNO] Webhook enviado com sucesso para %s", targetURL)
+	log.Printf("[PAGEXTERNO] Webhook enviado (%s) → %s", payload.Status, targetURL)
 	return nil
 }
 
 func generateTransactionID() string {
 	return fmt.Sprintf("tx-%d", time.Now().UnixNano())
-}
-
-func main() {
-	rand.Seed(time.Now().UnixNano())
-	http.HandleFunc("/payment", handlePayment)
-	log.Println("[PAGEXTERNO] Servidor ouvindo em :8085")
-	http.ListenAndServe(":8085", nil)
 }
