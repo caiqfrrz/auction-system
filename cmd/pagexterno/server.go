@@ -1,7 +1,7 @@
 package server
 
 import (
-	"auction-system/internal/mspagamento"
+	"auction-system/internal/pagexterno"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,7 +14,7 @@ import (
 )
 
 type Server struct {
-	msPagamento *mspagamento.MsPagamento
+	msPagamento *pagexterno.Pagexterno
 }
 
 func NewServer(ch *amqp.Channel) *http.Server {

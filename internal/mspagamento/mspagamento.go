@@ -5,10 +5,10 @@ import (
 	"auction-system/pkg/models"
 	"encoding/json"
 	"fmt"
+	"bytes"
 	"log"
 	"net/http"
 
-	"github.com/gin-gonic/gin"
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
@@ -29,13 +29,26 @@ type PaymentRequest struct {
     WinnerID    string            `json:"winner_id"`
 }
 
+type PaymentStatusWebhook struct {
+	TransactionID string  `json:"transaction_id"`
+	Status        string  `json:"status"` // "approved" | "rejected"
+	AuctionID     string  `json:"auction_id"`
+	WinnerID      string  `json:"winner_id"`
+	Amount        float64 `json:"amount"`
+}
+
+type PaymentResponse struct {
+	PaymentLink   string `json:"payment_link"`
+	TransactionID string `json:"transaction_id"`
+}
+
 func NewMsPagamento(ch *amqp.Channel, externalPayURL, publicURL, queueName, httpAddr string) *MsPagamento {
 	return &MsPagamento{
 		ch:             ch,
 		externalPayURL: externalPayURL,
 		publicURL:      publicURL,
 		queueName:      queueName,
-		httpAddr:       ":8084",
+		httpAddr:       httpAddr,
 	}
 }
 
@@ -53,31 +66,88 @@ func (m *MsPagamento) DeclareExchangeAndQueues() {
 	rabbitmq.BindQueueToExchange(m.ch, "status_pagamento", "status_pagamento", "ms_pagamentos")
 }
 
-func (m *MsPagamento) Listenleilao_vencedor() {
+func (m *MsPagamento) ListenLeilaoVencedor() {
 	msgs, _ := m.ch.Consume("leilao_vencedor", "", true, false, false, false, nil)
 	go func() {
 		for d := range msgs {
 			var leilao models.LeilaoVencedor
-			if err := json.Unmarshal(d.Body, &leilao); err == nil {
-				m.SubmitPaymentData()
+			if err := json.Unmarshal(d.Body, &leilao); err != nil {
+				log.Println("Error decoding leilao_vencedor:", err)
+				continue
 			}
-			log.Printf("requisição REST payment ao sistema de pagamento enviada: usuário %s (valor %s)", leilao.UserID, leilao.Valor)
+
+			log.Printf("[MS PAGAMENTO] Recebido vencedor: %+v", leilao)
+			if err := m.SubmitPaymentData(leilao); err != nil {
+				log.Println("Erro ao enviar pagamento:", err)
+			}
 		}
 	}()
 }
-func (m *MsPagamento) Start() {
-	m.DeclareExchangeAndQueues()
-	m.Listenleilao_vencedor()
-}
 
-func (m *MsPagamento) SubmitPaymentData(c *gin.Context) {
-	SubmitPaymentDataReq, _ := http.NewRequest("POST", fmt.Sprintf("http://%s/create-auction", m.externalPayURL), c.Request.Body)
-
-	SubmitPaymentDataResp, err := http.DefaultClient.Do(SubmitPaymentDataReq)
-	if err != nil || SubmitPaymentDataResp.StatusCode != http.StatusOK {
-		c.JSON(http.StatusBadGateway, gin.H{"error": fmt.Sprintf("Failed to create auction: %s", SubmitPaymentDataResp.Body)})
-		return
+func (m *MsPagamento) SubmitPaymentData(leilao models.LeilaoVencedor) error {
+	req := PaymentRequest{
+		Amount:   leilao.Valor,
+		Currency: "BRL",
+		Customer: map[string]string{"id": leilao.UserID},
+		CallbackURL: fmt.Sprintf("%s/payment-status", m.publicURL),
+		AuctionID:   leilao.LeilaoID,
+		WinnerID:    leilao.UserID,
 	}
 
-	c.JSON(http.StatusOK, gin.H{"status": "success"})
+	body, _ := json.Marshal(req)
+	url := fmt.Sprintf("%s/payment", m.externalPayURL)
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(body))
+	if err != nil {
+		return fmt.Errorf("erro ao chamar sistema de pagamento: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("erro no retorno do sistema externo: %s", resp.Status)
+	}
+
+	var payResp PaymentResponse
+	if err := json.NewDecoder(resp.Body).Decode(&payResp); err != nil {
+		return fmt.Errorf("erro ao decodificar resposta: %w", err)
+	}
+
+	// Publica o link no RabbitMQ
+	msgBody, _ := json.Marshal(payResp)
+	if err := m.ch.Publish("ms_pagamentos", "link_pagamento", false, false,
+		amqp.Publishing{ContentType: "application/json", Body: msgBody}); err != nil {
+		return fmt.Errorf("erro ao publicar link_pagamento: %w", err)
+	}
+
+	log.Printf("Link de pagamento publicado: %s", payResp.PaymentLink)
+	return nil
+}
+
+func (m *MsPagamento) webhookHandler(w http.ResponseWriter, r *http.Request) {
+	var payload PaymentStatusWebhook
+	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	log.Printf("[WEBHOOK] Status recebido: %+v", payload)
+
+	// Publica o evento status_pagamento
+	msgBody, _ := json.Marshal(payload)
+	if err := m.ch.Publish("ms_pagamentos", "status_pagamento", false, false,
+		amqp.Publishing{ContentType: "application/json", Body: msgBody}); err != nil {
+		log.Println("Erro ao publicar status_pagamento:", err)
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Webhook received"))
+}
+
+func (m *MsPagamento) Start() {
+	m.DeclareExchangeAndQueues()
+	m.ListenLeilaoVencedor()
+
+	http.HandleFunc("/payment-status", m.webhookHandler)
+	log.Printf("[MS PAGAMENTO] Servidor ouvindo webhook em %s", m.httpAddr)
+	http.ListenAndServe(m.httpAddr, nil)
 }
