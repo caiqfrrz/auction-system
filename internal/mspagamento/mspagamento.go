@@ -1,11 +1,11 @@
 package mspagamento
 
 import (
-	"auction-system/pkg/rabbitmq"
 	"auction-system/pkg/models"
+	"auction-system/pkg/rabbitmq"
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"bytes"
 	"log"
 	"net/http"
 
@@ -22,11 +22,12 @@ type MsPagamento struct {
 
 type PaymentRequest struct {
 	Amount      float64           `json:"amount"`
-    Currency    string            `json:"currency"`
-    Customer    map[string]string `json:"customer"`
-    CallbackURL string            `json:"callback_url"`
-    AuctionID   string            `json:"auction_id"`
-    WinnerID    string            `json:"winner_id"`
+	Currency    string            `json:"currency"`
+	Customer    map[string]string `json:"customer"`
+	CallbackURL string            `json:"callback_url"`
+	AuctionID   string            `json:"auction_id"`
+	WinnerID    string            `json:"winner_id"`
+	LinkCB      string            `json:"link_callback"`
 }
 
 type PaymentStatusWebhook struct {
@@ -54,16 +55,16 @@ func NewMsPagamento(ch *amqp.Channel, externalPayURL, publicURL, queueName, http
 
 // Inicializa a exchange e faz o binding das filas
 func (m *MsPagamento) DeclareExchangeAndQueues() {
-	rabbitmq.DeclareExchange(m.ch, "ms_pagamentos", "topic")
+	rabbitmq.DeclareExchange(m.ch, "leilao_events", "topic")
 
 	rabbitmq.DeclareQueue(m.ch, "leilao_vencedor")
-	rabbitmq.BindQueueToExchange(m.ch, "leilao_vencedor", "leilao_vencedor", "ms_pagamentos")
+	rabbitmq.BindQueueToExchange(m.ch, "leilao_vencedor", "leilao.vencedor", "leilao_events")
 
 	rabbitmq.DeclareQueue(m.ch, "link_pagamento")
-	rabbitmq.BindQueueToExchange(m.ch, "link_pagamento", "link_pagamento", "ms_pagamentos")
+	rabbitmq.BindQueueToExchange(m.ch, "link_pagamento", "link.pagamento", "leilao_events")
 
 	rabbitmq.DeclareQueue(m.ch, "status_pagamento")
-	rabbitmq.BindQueueToExchange(m.ch, "status_pagamento", "status_pagamento", "ms_pagamentos")
+	rabbitmq.BindQueueToExchange(m.ch, "status_pagamento", "status.pagamento", "leilao_events")
 }
 
 func (m *MsPagamento) ListenLeilaoVencedor() {
@@ -86,12 +87,13 @@ func (m *MsPagamento) ListenLeilaoVencedor() {
 
 func (m *MsPagamento) SubmitPaymentData(leilao models.LeilaoVencedor) error {
 	req := PaymentRequest{
-		Amount:   leilao.Valor,
-		Currency: "BRL",
-		Customer: map[string]string{"id": leilao.UserID},
+		Amount:      leilao.Valor,
+		Currency:    "BRL",
+		Customer:    map[string]string{"id": leilao.UserID},
 		CallbackURL: fmt.Sprintf("%s/payment-status", m.publicURL),
 		AuctionID:   leilao.LeilaoID,
 		WinnerID:    leilao.UserID,
+		LinkCB:      fmt.Sprintf("%s/payment-link", m.publicURL),
 	}
 
 	body, _ := json.Marshal(req)
@@ -123,6 +125,7 @@ func (m *MsPagamento) SubmitPaymentData(leilao models.LeilaoVencedor) error {
 }
 
 func (m *MsPagamento) webhookHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("Entrou no webhookHandler")
 	var payload PaymentStatusWebhook
 	if err := json.NewDecoder(r.Body).Decode(&payload); err != nil {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
@@ -143,11 +146,33 @@ func (m *MsPagamento) webhookHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Webhook received"))
 }
 
+func (m *MsPagamento) paymentLinkHandler(w http.ResponseWriter, r *http.Request) {
+	log.Println("Entrou no paymentLinkHandler")
+	var resp PaymentResponse
+	if err := json.NewDecoder(r.Body).Decode(&resp); err != nil {
+		http.Error(w, "invalid JSON", http.StatusBadRequest)
+		return
+	}
+	defer r.Body.Close()
+
+	log.Printf("[MS PAGAMENTO] Link recebido: %s (tx=%s)", resp.PaymentLink, resp.TransactionID)
+
+	// Publish to queue "link_pagamento"
+	body, _ := json.Marshal(resp)
+	if err := m.ch.Publish("ms_pagamentos", "link_pagamento", false, false,
+		amqp.Publishing{ContentType: "application/json", Body: body}); err != nil {
+		log.Println("Erro ao publicar link_pagamento:", err)
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
 func (m *MsPagamento) Start() {
 	m.DeclareExchangeAndQueues()
 	m.ListenLeilaoVencedor()
 
 	http.HandleFunc("/payment-status", m.webhookHandler)
+	http.HandleFunc("/payment-link", m.paymentLinkHandler)
 	log.Printf("[MS PAGAMENTO] Servidor ouvindo webhook em %s", m.httpAddr)
 	http.ListenAndServe(m.httpAddr, nil)
 }
