@@ -113,10 +113,16 @@ func (m *MsPagamento) SubmitPaymentData(leilao models.LeilaoVencedor) error {
 		return fmt.Errorf("erro ao decodificar resposta: %w", err)
 	}
 
+	var linkPagamento = models.LinkPagamento{
+		UserID:        leilao.UserID,
+		PaymentLink:   payResp.PaymentLink,
+		TransactionID: payResp.TransactionID,
+		AuctionID:     leilao.LeilaoID,
+	}
+
 	// Publica o link no RabbitMQ
-	msgBody, _ := json.Marshal(payResp)
-	if err := m.ch.Publish("ms_pagamentos", "link_pagamento", false, false,
-		amqp.Publishing{ContentType: "application/json", Body: msgBody}); err != nil {
+	msgBody, _ := json.Marshal(linkPagamento)
+	if err := rabbitmq.PublishToExchange(m.ch, "leilao_events", "link.pagamento", msgBody); err != nil {
 		return fmt.Errorf("erro ao publicar link_pagamento: %w", err)
 	}
 
@@ -135,9 +141,17 @@ func (m *MsPagamento) webhookHandler(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("[WEBHOOK] Status recebido: %+v", payload)
 
+	var statusPagamento = models.StatusPagamento{
+		TransactionID: payload.TransactionID,
+		Status:        payload.Status,
+		AuctionID:     payload.AuctionID,
+		WinnerID:      payload.WinnerID,
+		Amount:        payload.Amount,
+	}
+
 	// Publica o evento status_pagamento
-	msgBody, _ := json.Marshal(payload)
-	if err := m.ch.Publish("ms_pagamentos", "status_pagamento", false, false,
+	msgBody, _ := json.Marshal(statusPagamento)
+	if err := m.ch.Publish("leilao_events", "status.pagamento", false, false,
 		amqp.Publishing{ContentType: "application/json", Body: msgBody}); err != nil {
 		log.Println("Erro ao publicar status_pagamento:", err)
 	}
@@ -159,7 +173,7 @@ func (m *MsPagamento) paymentLinkHandler(w http.ResponseWriter, r *http.Request)
 
 	// Publish to queue "link_pagamento"
 	body, _ := json.Marshal(resp)
-	if err := m.ch.Publish("ms_pagamentos", "link_pagamento", false, false,
+	if err := m.ch.Publish("leilao_events", "link.pagamento", false, false,
 		amqp.Publishing{ContentType: "application/json", Body: body}); err != nil {
 		log.Println("Erro ao publicar link_pagamento:", err)
 	}

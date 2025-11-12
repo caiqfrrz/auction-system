@@ -151,16 +151,7 @@ func (m *MSLance) ListenLeilaoFinalizado() {
 						Valor:    leilao.MaiorLance,
 					}
 					body, _ := json.Marshal(vencedor)
-					m.ch.Publish(
-						"leilao_events",
-						"leilao.vencedor",
-						false,
-						false,
-						amqp.Publishing{
-							ContentType: "application/json",
-							Body:        body,
-						},
-					)
+					rabbitmq.PublishToExchange(m.ch, "leilao_events", "leilao.vencedor", body)
 					log.Printf("Leilão %s finalizado. Vencedor: %s (%.2f)", leilao.ID, leilao.Vencedor, leilao.MaiorLance)
 				}
 				m.mu.Unlock()

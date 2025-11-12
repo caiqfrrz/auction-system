@@ -39,7 +39,17 @@ type LeilaoVencedor struct {
 	Valor    float64 `json:"valor"`
 }
 
-type ClienteRegistrado struct {
-	UserID    string `json:"user_id"`
-	PublicKey string `json:"public_key"`
+type StatusPagamento struct {
+	TransactionID string  `json:"transaction_id"`
+	Status        string  `json:"status"` // "approved" | "rejected"
+	AuctionID     string  `json:"auction_id"`
+	WinnerID      string  `json:"winner_id"`
+	Amount        float64 `json:"amount"`
+}
+
+type LinkPagamento struct {
+	UserID        string `json:"user_id"`
+	PaymentLink   string `json:"payment_link"`
+	TransactionID string `json:"transaction_id"`
+	AuctionID     string `json:"auction_id"`
 }

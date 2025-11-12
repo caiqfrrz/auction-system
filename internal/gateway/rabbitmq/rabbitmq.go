@@ -60,8 +60,8 @@ func (r *RabbitMQConsumer) setupQueues() error {
 	}
 
 	queuesBindings := map[string]string{
-		// "link_pagamento":   "link.pagamento",
-		// "status_pagamento": "status.pagamento",
+		"link_pagamento":   "link.pagamento",
+		"status_pagamento": "status.pagamento",
 		"lance_validado":   "lance.validado",
 		"lance_invalidado": "lance.invalidado",
 		"leilao_vencedor":  "leilao.vencedor",
@@ -106,6 +106,8 @@ func (r *RabbitMQConsumer) ConsumeQueues() error {
 		"lance_validado":   r.handleLanceValidado,
 		"leilao_vencedor":  r.handleLeilaoVencedor,
 		"lance_invalidado": r.handleLanceInvalidado,
+		"status_pagamento": r.handleStatusPagamento,
+		"link_pagamento":   r.handleLinkPagamento,
 	}
 
 	for queueName, handler := range queues {
@@ -146,33 +148,62 @@ func (r *RabbitMQConsumer) consumeQueue(queueName string, handler func(amqp.Deli
 	return nil
 }
 
-// func (r *RabbitMQConsumer) handleStatusPagamento(msg amqp.Delivery) {
-// 	var lance models.
-// 	if err := json.Unmarshal(msg.Body, &lance); err != nil {
-// 		log.Printf("Error parsing lance_realizado: %v", err)
-// 		msg.Nack(false, false)
-// 		return
-// 	}
+func (r *RabbitMQConsumer) handleStatusPagamento(msg amqp.Delivery) {
+	var statusPagamento models.StatusPagamento
+	if err := json.Unmarshal(msg.Body, &statusPagamento); err != nil {
+		log.Printf("Error parsing status_pagamento: %v", err)
+		msg.Nack(false, false)
+		return
+	}
 
-// 	log.Printf("Lance validado: user=%s, leilao=%s, valor=%.2f", lance.UserID, lance.LeilaoID, lance.Valor)
+	log.Printf("Status pagamento: user=%s, leilao=%s, status=%s", statusPagamento.WinnerID, statusPagamento.AuctionID, statusPagamento.Status)
 
-// 	leilaoID, _ := strconv.Atoi(lance.LeilaoID)
+	leilaoID, _ := strconv.Atoi(statusPagamento.AuctionID)
 
-// 	notification := sse.Notification{
-// 		Type:      sse.LanceValidado,
-// 		LeilaoID:  leilaoID,
-// 		ClienteID: "",
-// 		Data: map[string]interface{}{
-// 			"user_id":   lance.UserID,
-// 			"valor":     lance.Valor,
-// 			"leilao_id": lance.LeilaoID,
-// 		},
-// 		Timestamp: time.Now(),
-// 	}
+	notification := sse.Notification{
+		Type:      sse.StatusPagamento,
+		LeilaoID:  leilaoID,
+		ClienteID: statusPagamento.WinnerID,
+		Data: map[string]interface{}{
+			"transaction_id": statusPagamento.TransactionID,
+			"amount":         statusPagamento.Amount,
+			"status":         statusPagamento.Status,
+			"winner_id":      statusPagamento.WinnerID,
+		},
+		Timestamp: time.Now(),
+	}
 
-// 	r.eventStream.Message <- notification
-// 	msg.Ack(false)
-// }
+	r.eventStream.Message <- notification
+	msg.Ack(false)
+}
+
+func (r *RabbitMQConsumer) handleLinkPagamento(msg amqp.Delivery) {
+	var linkPagamento models.LinkPagamento
+	if err := json.Unmarshal(msg.Body, &linkPagamento); err != nil {
+		log.Printf("Error parsing status_pagamento: %v", err)
+		msg.Nack(false, false)
+		return
+	}
+
+	log.Printf("Status pagamento: user=%s, link=%s, auctionId=%s", linkPagamento.UserID, linkPagamento.PaymentLink, linkPagamento.AuctionID)
+
+	leilaoID, _ := strconv.Atoi(linkPagamento.AuctionID)
+
+	notification := sse.Notification{
+		Type:      sse.LinkPagamento,
+		LeilaoID:  leilaoID,
+		ClienteID: linkPagamento.UserID,
+		Data: map[string]interface{}{
+			"payment_link":   linkPagamento.PaymentLink,
+			"transaction_id": linkPagamento.TransactionID,
+			"auction_id":     linkPagamento.AuctionID,
+		},
+		Timestamp: time.Now(),
+	}
+
+	r.eventStream.Message <- notification
+	msg.Ack(false)
+}
 
 func (r *RabbitMQConsumer) handleLanceValidado(msg amqp.Delivery) {
 	var lance models.LanceValidado
