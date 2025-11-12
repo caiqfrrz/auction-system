@@ -30,9 +30,7 @@ func NewServer(ch *amqp.Channel) *http.Server {
 	}
 
 	msLance.DeclareExchangeAndQueues()
-	msLance.ListenClienteRegistrado()
 	msLance.ListenLeilaoIniciado()
-	msLance.ListenLanceRealizado()
 	msLance.ListenLeilaoFinalizado()
 
 	return server

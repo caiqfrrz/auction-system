@@ -113,39 +113,19 @@ func (l *MsLeilao) ScheduleAuction(auction *Auction) {
 			DataFim:    a.Fim,
 		}
 		body, _ := json.Marshal(event)
-		// Publica na exchange com routing key
+
 		rabbitmq.PublishToExchange(l.ch, "leilao_events", "leilao.iniciado", body)
 		log.Printf("Leilão %s iniciado!", a.ID)
 	}(auction)
 
 	go func(a *Auction) {
-		// aguarda até 1s antes do fim → mensagem 1
-		queueName := fmt.Sprintf("leilao_%s", a.ID)
-		time.Sleep(time.Until(a.Fim.Add(-3 * time.Second)))
-		msg1 := "DOLE UMA!"
-		body1, _ := json.Marshal(msg1)
-		rabbitmq.PublishToExchange(l.ch, "leilao_events", queueName, body1, "text/plain")
-
-		// aguarda até 1s antes do fim → mensagem 2
-		time.Sleep(1 * time.Second)
-		msg2 := "DOLE DUAS!"
-		body2, _ := json.Marshal(msg2)
-		rabbitmq.PublishToExchange(l.ch, "leilao_events", queueName, body2, "text/plain")
-
-		// chegou o fim → mensagem VENDIDO!!
-		time.Sleep(1 * time.Second)
-		a.Ativo = false
-		msg3 := "VENDIDO!!!!"
-		body3, _ := json.Marshal(msg3)
-		rabbitmq.PublishToExchange(l.ch, "leilao_events", queueName, body3, "text/plain")
-
+		time.Sleep(time.Until(a.Fim))
 		a.Ativo = false
 		event := map[string]string{
-			"id":     a.ID,
-			"status": "encerrado",
+			"id":          a.ID,
+			"description": a.Descricao,
 		}
 		body, _ := json.Marshal(event)
-		// Publica na exchange com routing key
 		rabbitmq.PublishToExchange(l.ch, "leilao_events", "leilao.finalizado", body)
 
 		log.Printf("Leilão %s finalizado!", a.ID)
