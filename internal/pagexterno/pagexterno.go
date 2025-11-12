@@ -20,7 +20,7 @@ type PaymentRequest struct {
     CallbackURL string            `json:"callback_url"`
     AuctionID   string            `json:"auction_id"`
     WinnerID    string            `json:"winner_id"`
-	LinkCB      string            `json:"link_callback"`
+	//LinkCB      string            `json:"link_callback"`
 }
 
 type PaymentResponse struct {
@@ -100,11 +100,11 @@ func handlePayment(ps *PaymentStore) http.HandlerFunc {
 		}
 
 		// send response instantly to MS Pagamento
-		if req.LinkCB != "" {
-			go func() {
-				sendPaymentLinkCallback(req.LinkCB, resp)
-			}()
-		}
+		// if req.LinkCB != "" {
+		// 	go func() {
+		// 		sendPaymentLinkCallback(req.LinkCB, resp)
+		// 	}()
+		// }
 
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(resp)
