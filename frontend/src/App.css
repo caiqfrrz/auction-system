@@ -23,12 +23,15 @@
 }
 
 .auction-item {
+  position: relative;
   height: 200px;
   width: 200px;
   border-radius: 20px;
   background-color: rgb(28, 28, 28);
   margin: 10px;
   padding: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
 .modal-overlay {
@@ -68,6 +71,15 @@
   height: 100px;
   display: flex;
   flex-direction: column;
+}
+
+.bell-button {
+  position: absolute;
+  top: 10px;
+  bottom: 0px;
+  height: 30px;
+  right: 10px;
+  background-color: rgb(89, 89, 89);
 }
 
 .button-container {
