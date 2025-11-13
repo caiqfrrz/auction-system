@@ -153,3 +153,48 @@ func (s *Server) RegisterInterest(c *gin.Context) {
 func (s *Server) CancelInterest(c *gin.Context) {
 	c.JSON(http.StatusNotImplemented, gin.H{"message": "Not implemented yet"})
 }
+
+func (s *Server) GetHighestBid(c *gin.Context) {
+	auctionID := c.Query("auctionId")
+	if auctionID == "" {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "auctionId query parameter is required",
+		})
+		return
+	}
+
+	url := fmt.Sprintf("http://%s/highest-bid?auctionId=%s", s.msLanceHost, auctionID)
+	resp, err := http.Get(url)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to connect to auction service",
+		})
+		return
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to read response",
+		})
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		var errorResp map[string]interface{}
+		json.Unmarshal(body, &errorResp)
+		c.JSON(resp.StatusCode, errorResp)
+		return
+	}
+
+	var result map[string]interface{}
+	if err := json.Unmarshal(body, &result); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "failed to parse response",
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, result)
+}

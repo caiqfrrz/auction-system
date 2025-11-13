@@ -75,7 +75,7 @@ function App() {
               <p>Pagamento disponível!</p>
               <button
                 onClick={() => {
-                  window.open(data.link, "_blank");
+                  window.open(data.payment_link, "_blank");
                   toast.dismiss(t.id);
                 }}
               >
@@ -90,13 +90,13 @@ function App() {
         break;
 
       case "status_pagamento":
-        if (data.status === "aprovado") {
+        if (data.status === "approved") {
           toast.success("✅ Pagamento aprovado!", {
-            duration: 5000,
+            duration: 50000,
           });
         } else {
           toast.error("❌ Pagamento recusado", {
-            duration: 5000,
+            duration: 50000,
           });
         }
         break;
@@ -198,23 +198,25 @@ function App() {
               setShowAuctionDetails(true);
             }}
           >
-            <button
-              className="bell-button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onPressBell(a.id);
-              }}
-            >
-              <img
-                src={
-                  registeredAuctionsID.includes(a.id)
-                    ? selectedBellIcon
-                    : bellIcon
-                }
-                width={20}
-                height={20}
-              />
-            </button>
+            {a.active && (
+              <button
+                className="bell-button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onPressBell(a.id);
+                }}
+              >
+                <img
+                  src={
+                    registeredAuctionsID.includes(a.id)
+                      ? selectedBellIcon
+                      : bellIcon
+                  }
+                  width={20}
+                  height={20}
+                />
+              </button>
+            )}
             <p className="description-auction">
               <strong>{a.description}</strong>
             </p>

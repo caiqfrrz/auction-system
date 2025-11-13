@@ -1,46 +1,30 @@
-export const BASE_URL = "http://127.0.0.1:8080"
+export const BASE_URL = "http://localhost:8080";
 
-export const api = async (
-    path: string,
-    options: RequestInit = {},
-): Promise<any> => {
-    const headers: Record<string, string> = {
-        "Content-Type": "application/json",
-        ...(options.headers as Record<string, string> || {})
-    };
+export async function api(
+  endpoint: string,
+  options?: RequestInit
+): Promise<any> {
+  const url = `${BASE_URL}${endpoint}`;
 
+  const response = await fetch(url, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      ...options?.headers,
+    },
+    credentials: "include",
+  });
+
+  const text = await response.text();
+
+  if (!response.ok) {
     try {
-        const res = await fetch(`${BASE_URL}${path}`, {
-            ...options,
-            headers,
-        });
-
-        let json;
-        try {
-            json = await res.json();
-        } catch (e) {
-            const text = await res.text();
-            json = { error: text || "Invalid response from server" };
-        }
-
-        if (!res.ok) {
-            const errorMessage = json.error || json.message || json.details || `HTTP ${res.status}`;
-            const errorDetails = json.details || "";
-            
-            console.error("API Error:", {
-                status: res.status,
-                path,
-                body: json,
-            });
-            
-            throw new Error(errorDetails ? `${errorMessage}: ${errorDetails}` : errorMessage);
-        }
-
-        return json;
-    } catch (error) {
-        if (error instanceof Error) {
-            throw error;
-        }
-        throw new Error("Network error or invalid response");
+      const error = JSON.parse(text);
+      throw new Error(error.error || error.message || `HTTP ${response.status}`);
+    } catch {
+      throw new Error(`HTTP ${response.status}: ${text}`);
     }
+  }
+
+  return text ? JSON.parse(text) : {};
 }

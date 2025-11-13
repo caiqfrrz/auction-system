@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./AuctionView.css";
 import type { Auction } from "./lib/types";
 import { api } from "./lib/api";
@@ -13,7 +13,23 @@ function AuctionView({ auction, onClose }: Props) {
   if (auction === null) return null;
 
   const [bidValue, setBidValue] = useState<string>("");
+  const [highestBid, setHighestBid] = useState<string>("");
   const { userId } = useUser();
+
+  useEffect(() => {
+    const getHighestBid = async () => {
+      try {
+        const data: any = await api(`/highest-bid?auctionId=${auction.id}`);
+        if (data.highest_bid && data.highest_bid !== "") {
+          setHighestBid(data.highest_bid);
+        }
+      } catch (error) {
+        console.error("error fetching highest bid:", error);
+      }
+    };
+
+    getHighestBid();
+  }, [auction]);
 
   const submitBid = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -45,17 +61,20 @@ function AuctionView({ auction, onClose }: Props) {
         )}
 
         {auction.active && (
-          <form className="form-bid" onSubmit={submitBid}>
-            <h3>Make a bid:</h3>
-            <input
-              type="number"
-              value={bidValue}
-              onChange={(e) => setBidValue(e.target.value)}
-              placeholder="Enter bid amount"
-              required
-            />
-            <button type="submit">Place Bid</button>
-          </form>
+          <>
+            <h3>Maior lance: {highestBid}</h3>
+            <form className="form-bid" onSubmit={submitBid}>
+              <h3>Make a bid:</h3>
+              <input
+                type="number"
+                value={bidValue}
+                onChange={(e) => setBidValue(e.target.value)}
+                placeholder="Enter bid amount"
+                required
+              />
+              <button type="submit">Place Bid</button>
+            </form>
+          </>
         )}
       </div>
     </div>

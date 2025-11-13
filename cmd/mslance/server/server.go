@@ -47,6 +47,7 @@ func (s *Server) registerRoutes() http.Handler {
 	}))
 
 	r.POST("/make-bid", s.MakeBid)
+	r.GET("/highest-bid", s.GetHighestBid)
 
 	return r
 }
