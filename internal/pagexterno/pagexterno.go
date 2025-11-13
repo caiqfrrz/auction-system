@@ -15,12 +15,11 @@ import (
 
 type PaymentRequest struct {
 	Amount      float64           `json:"amount"`
-    Currency    string            `json:"currency"`
-    Customer    map[string]string `json:"customer"`
-    CallbackURL string            `json:"callback_url"`
-    AuctionID   string            `json:"auction_id"`
-    WinnerID    string            `json:"winner_id"`
-	//LinkCB      string            `json:"link_callback"`
+	Currency    string            `json:"currency"`
+	Customer    map[string]string `json:"customer"`
+	CallbackURL string            `json:"callback_url"`
+	AuctionID   string            `json:"auction_id"`
+	WinnerID    string            `json:"winner_id"`
 }
 
 type PaymentResponse struct {
@@ -193,16 +192,6 @@ func sendPaymentStatusWebhook(targetURL string, payload PaymentStatusWebhook) er
 
 	log.Printf("[PAGEXTERNO] Webhook enviado (%s) → %s", payload.Status, targetURL)
 	return nil
-}
-
-func sendPaymentLinkCallback(targetURL string, payload PaymentResponse) {
-	body, _ := json.Marshal(payload)
-	_, err := http.Post(targetURL, "application/json", bytes.NewBuffer(body))
-	if err != nil {
-		log.Println("Erro ao enviar PaymentResponse:", err)
-		return
-	}
-	log.Printf("[PAGEXTERNO] Payment link enviado → %s", targetURL)
 }
 
 func generateTransactionID() string {

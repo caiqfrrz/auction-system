@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"sync"
-	"time"
 
 	amqp "github.com/rabbitmq/amqp091-go"
 )
@@ -161,30 +160,5 @@ func (m *MSLance) ListenLeilaoFinalizado() {
 				m.mu.Unlock()
 			}
 		}
-	}()
-
-	go func() {
-		// garante que exista um leilão válido para o teste
-		testID := "test-auction-1"
-		m.mu.Lock()
-		m.leiloes[testID] = &LeilaoStatus{
-			ID:         testID,
-			Descricao:  "Leilão de teste",
-			Ativo:      true,
-			MaiorLance: 150.0,
-			Vencedor:   "test-winner-1",
-		}
-		m.mu.Unlock()
-
-		// espera curto para o consumer estar pronto
-		time.Sleep(150 * time.Millisecond)
-
-		payload := map[string]string{"id": testID}
-		b, _ := json.Marshal(payload)
-		if err := rabbitmq.PublishToExchange(m.ch, "leilao_events", "leilao.finalizado", b); err != nil {
-			log.Printf("failed to publish test leilao_finalizado: %v", err)
-			return
-		}
-		log.Printf("published test leilao_finalizado for id %s", testID)
 	}()
 }
