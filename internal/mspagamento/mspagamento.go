@@ -27,7 +27,6 @@ type PaymentRequest struct {
 	CallbackURL string            `json:"callback_url"`
 	AuctionID   string            `json:"auction_id"`
 	WinnerID    string            `json:"winner_id"`
-	LinkCB      string            `json:"link_callback"`
 }
 
 type PaymentStatusWebhook struct {
@@ -93,7 +92,7 @@ func (m *MsPagamento) SubmitPaymentData(leilao models.LeilaoVencedor) error {
 		CallbackURL: fmt.Sprintf("%s/payment-status", m.publicURL),
 		AuctionID:   leilao.LeilaoID,
 		WinnerID:    leilao.UserID,
-		LinkCB:      fmt.Sprintf("%s/payment-link", m.publicURL),
+		//LinkCB:      fmt.Sprintf("%s/payment-link", m.publicURL),
 	}
 
 	body, _ := json.Marshal(req)
@@ -160,33 +159,36 @@ func (m *MsPagamento) webhookHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte("Webhook received"))
 }
 
-func (m *MsPagamento) paymentLinkHandler(w http.ResponseWriter, r *http.Request) {
-	log.Println("Entrou no paymentLinkHandler")
-	var resp PaymentResponse
-	if err := json.NewDecoder(r.Body).Decode(&resp); err != nil {
-		http.Error(w, "invalid JSON", http.StatusBadRequest)
-		return
-	}
-	defer r.Body.Close()
-
-	log.Printf("[MS PAGAMENTO] Link recebido: %s (tx=%s)", resp.PaymentLink, resp.TransactionID)
-
-	// Publish to queue "link_pagamento"
-	body, _ := json.Marshal(resp)
-	if err := m.ch.Publish("leilao_events", "link.pagamento", false, false,
-		amqp.Publishing{ContentType: "application/json", Body: body}); err != nil {
-		log.Println("Erro ao publicar link_pagamento:", err)
-	}
-
-	w.WriteHeader(http.StatusOK)
-}
+// func (m *MsPagamento) sendTestLeilaoVencedor() {
+// 	lv := models.LeilaoVencedor{
+// 		LeilaoID: "test-auction-1",
+// 		UserID:   "test-winner-1",
+// 		Valor:    123.45,
+// 	}
+// 	b, err := json.Marshal(lv)
+// 	if err != nil {
+// 		log.Printf("failed to marshal test leilao_vencedor: %v", err)
+// 		return
+// 	}
+// 	if err := rabbitmq.PublishToExchange(m.ch, "leilao_events", "leilao.vencedor", b); err != nil {
+// 		log.Printf("failed to publish test leilao_vencedor: %v", err)
+// 		return
+// 	}
+// 	log.Printf("[MS PAGAMENTO] Test leilao_vencedor published: %+v", lv)
+// }
 
 func (m *MsPagamento) Start() {
 	m.DeclareExchangeAndQueues()
 	m.ListenLeilaoVencedor()
 
+	// go func() {
+	// 	// pequeno delay para garantir que o consumer esteja registrado
+	// 	time.Sleep(100 * time.Millisecond)
+	// 	m.sendTestLeilaoVencedor()
+	// }()
+
 	http.HandleFunc("/payment-status", m.webhookHandler)
-	http.HandleFunc("/payment-link", m.paymentLinkHandler)
+	//http.HandleFunc("/payment-link", m.paymentLinkHandler)
 	log.Printf("[MS PAGAMENTO] Servidor ouvindo webhook em %s", m.httpAddr)
 	http.ListenAndServe(m.httpAddr, nil)
 }

@@ -54,6 +54,9 @@ func (m *MSLance) DeclareExchangeAndQueues() {
 	rabbitmq.DeclareQueue(m.ch, "leilao_vencedor")
 	rabbitmq.BindQueueToExchange(m.ch, "leilao_vencedor", "leilao.vencedor", "leilao_events")
 
+	rabbitmq.DeclareQueue(m.ch, "mspag_leilao_vencedor")
+	rabbitmq.BindQueueToExchange(m.ch, "mspag_leilao_vencedor", "leilao.vencedor", "leilao_events")
+
 	rabbitmq.DeclareQueue(m.ch, "cliente_registrado")
 	rabbitmq.BindQueueToExchange(m.ch, "cliente_registrado", "cliente.registrado", "leilao_events")
 }
