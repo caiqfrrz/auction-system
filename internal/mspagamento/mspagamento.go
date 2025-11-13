@@ -57,8 +57,8 @@ func NewMsPagamento(ch *amqp.Channel, externalPayURL, publicURL, queueName, http
 func (m *MsPagamento) DeclareExchangeAndQueues() {
 	rabbitmq.DeclareExchange(m.ch, "leilao_events", "topic")
 
-	rabbitmq.DeclareQueue(m.ch, "leilao_vencedor")
-	rabbitmq.BindQueueToExchange(m.ch, "leilao_vencedor", "leilao.vencedor", "leilao_events")
+	rabbitmq.DeclareQueue(m.ch, "mspagamento_leilao_vencedor")
+	rabbitmq.BindQueueToExchange(m.ch, "mspagamento_leilao_vencedor", "leilao.vencedor", "leilao_events")
 
 	rabbitmq.DeclareQueue(m.ch, "link_pagamento")
 	rabbitmq.BindQueueToExchange(m.ch, "link_pagamento", "link.pagamento", "leilao_events")
@@ -68,7 +68,7 @@ func (m *MsPagamento) DeclareExchangeAndQueues() {
 }
 
 func (m *MsPagamento) ListenLeilaoVencedor() {
-	msgs, _ := m.ch.Consume("leilao_vencedor", "", true, false, false, false, nil)
+	msgs, _ := m.ch.Consume("mspagamento_leilao_vencedor", "", true, false, false, false, nil)
 	go func() {
 		for d := range msgs {
 			var leilao models.LeilaoVencedor

@@ -77,6 +77,7 @@ func (s *Server) registerRoutes() http.Handler {
 	r.GET("/consult-auctions", s.ConsultAuctions)
 	r.GET("/register-interest/:auctionID/stream", HeadersMiddleware(), s.eventStream.SSEConnMiddleware(), s.RegisterInterest)
 	r.GET("/cancel-interest", s.CancelInterest)
+	r.GET("/highest-bid", s.GetHighestBid)
 	r.POST("/create-auction", s.CreateAuction)
 	r.POST("/make-bid", s.PlaceBid)
 

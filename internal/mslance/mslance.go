@@ -112,6 +112,16 @@ func (m *MSLance) MakeBid(bid models.LanceRealizado) error {
 	return nil
 }
 
+func (m *MSLance) GetHighestBid(auctionID string) (float64, error) {
+	auction, ok := m.leiloes[auctionID]
+	if !ok {
+		log.Printf("Leilão %s não encontrado", auctionID)
+		return 0, fmt.Errorf("leilão %s não encontrado", auctionID)
+	}
+
+	return auction.MaiorLance, nil
+}
+
 func (m *MSLance) ListenLeilaoIniciado() {
 	msgs, _ := m.ch.Consume("leilao_iniciado", "", true, false, false, false, nil)
 	go func() {
