@@ -1,26 +1,30 @@
 package server
 
 import (
+	gatewayGrpc "auction-system/internal/gateway/grpc"
 	grpcClients "auction-system/internal/gateway/grpc"
 	"auction-system/internal/gateway/sse"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
-	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
+	"google.golang.org/grpc"
 )
 
 type Server struct {
-	port        string
-	grpcClients *grpcClients.GRPCClients
-	eventStream *sse.EventStream
+	port            string
+	grpcClients     *grpcClients.GRPCClients
+	eventStream     *sse.EventStream
+	gatewayGrpcPort string
 }
 
-func NewServer() (*http.Server, error) {
-	port, _ := strconv.Atoi(os.Getenv("PORT"))
+func NewServer() (*http.Server, *grpc.Server, error) {
+	portStr := os.Getenv("PORT")
+	if portStr == "" {
+		portStr = "8080"
+	}
 
 	leilaoAddr := os.Getenv("MSLEILAO_GRPC")
 	if leilaoAddr == "" {
@@ -39,27 +43,36 @@ func NewServer() (*http.Server, error) {
 
 	grpcCli, err := grpcClients.NewGRPCClients(leilaoAddr, lanceAddr, pagamentoAddr)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create gRPC clients: %w", err)
+		return nil, nil, fmt.Errorf("failed to create gRPC clients: %w", err)
 	}
 
 	newStream := sse.NewEventStream()
-	//go newStream.Listen()
+
+	// Start Gateway gRPC server
+	gatewayGrpcPort := os.Getenv("GATEWAY_GRPC_PORT")
+	if gatewayGrpcPort == "" {
+		gatewayGrpcPort = "50060"
+	}
+
+	gatewayGrpcServer, err := gatewayGrpc.StartGRPCServer(newStream, grpcCli.LanceClient, grpcCli.PagamentoClient, gatewayGrpcPort)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to start Gateway gRPC server: %w", err)
+	}
 
 	newServer := &Server{
-		port:        strconv.Itoa(port),
-		grpcClients: grpcCli,
-		eventStream: newStream,
+		port:            portStr,
+		grpcClients:     grpcCli,
+		eventStream:     newStream,
+		gatewayGrpcPort: gatewayGrpcPort,
 	}
 
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%s", port),
-		Handler:      newServer.registerRoutes(),
-		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 15 * time.Second,
+		Addr:    fmt.Sprintf(":%s", portStr),
+		Handler: newServer.registerRoutes(),
 	}
 
-	log.Printf("Gateway server initialized on port %s", port)
-	return server, nil
+	log.Printf("Gateway server initialized on port %s", portStr)
+	return server, gatewayGrpcServer, nil
 }
 
 func (s *Server) registerRoutes() http.Handler {

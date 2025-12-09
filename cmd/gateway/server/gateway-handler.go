@@ -4,9 +4,8 @@ import (
 	"auction-system/internal/gateway/sse"
 	lancePb "auction-system/proto/lance"
 	leilaoPb "auction-system/proto/leilao"
+	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -30,15 +29,26 @@ func HeadersMiddleware() gin.HandlerFunc {
 }
 
 func (s *Server) CreateAuction(c *gin.Context) {
+	body, _ := c.GetRawData()
+	log.Printf("Received body: %s", string(body))
+	c.Request.Body = io.NopCloser(bytes.NewBuffer(body))
+
 	var req struct {
-		Titulo          string  `json:"titulo" binding:"required"`
-		Descricao       string  `json:"descricao" binding:"required"`
-		ValorInicial    float64 `json:"valor_inicial" binding:"required,gt=0"`
-		DuracaoSegundos int64   `json:"duracao_segundos" binding:"required,gt=0"`
+		Description string    `json:"description" binding:"required"`
+		Start       time.Time `json:"start" binding:"required"`
+		End         time.Time `json:"end" binding:"required"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
+		log.Printf("Binding error: %v", err)
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Calculate duration
+	duracao := int64(req.End.Sub(req.Start).Seconds())
+	if duracao <= 0 {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "end time must be after start time"})
 		return
 	}
 
@@ -47,10 +57,9 @@ func (s *Server) CreateAuction(c *gin.Context) {
 
 	// gRPC call
 	resp, err := s.grpcClients.LeilaoClient.CreateAuction(ctx, &leilaoPb.CreateAuctionRequest{
-		Titulo:          req.Titulo,
-		Descricao:       req.Descricao,
-		ValorInicial:    req.ValorInicial,
-		DuracaoSegundos: req.DuracaoSegundos,
+		Description: req.Description,
+		Start:       req.Start.Format(time.RFC3339),
+		End:         req.End.Format(time.RFC3339),
 	})
 
 	if err != nil {
@@ -69,7 +78,7 @@ func (s *Server) CreateAuction(c *gin.Context) {
 		ctx := context.Background()
 		_, err := s.grpcClients.LanceClient.NotifyAuctionStarted(ctx, &lancePb.AuctionStartedNotification{
 			LeilaoId: resp.LeilaoId,
-			Duracao:  req.DuracaoSegundos,
+			Duracao:  duracao,
 		})
 		if err != nil {
 			log.Printf("Error notifying MSLance: %v", err)
@@ -94,12 +103,11 @@ func (s *Server) ConsultAuctions(c *gin.Context) {
 	var auctions []map[string]interface{}
 	for _, a := range resp.Auctions {
 		auctions = append(auctions, map[string]interface{}{
-			"id":             a.Id,
-			"titulo":         a.Titulo,
-			"descricao":      a.Descricao,
-			"valor_inicial":  a.ValorInicial,
-			"tempo_restante": a.TempoRestante,
-			"active":         a.Active,
+			"id":          a.Id,
+			"description": a.Description,
+			"active":      a.Active,
+			"start":       a.Start,
+			"end":         a.End,
 		})
 	}
 
@@ -134,13 +142,14 @@ func (s *Server) PlaceBid(c *gin.Context) {
 	}
 
 	if !resp.Success {
-		// Lance inválido - enviar via SSE
 		notification := sse.Notification{
 			Type:      sse.LanceInvalidado,
 			ClienteID: req.UserID,
 			LeilaoID:  mustAtoi(req.LeilaoID),
 			Data: map[string]interface{}{
-				"motivo": resp.Error,
+				"motivo":  resp.Error,
+				"user_id": req.UserID,
+				"valor":   req.Valor,
 			},
 		}
 		s.eventStream.Message <- notification
@@ -206,14 +215,21 @@ func (s *Server) RegisterInterest(c *gin.Context) {
 
 	c.Stream(func(w io.Writer) bool {
 		select {
-		case notification := <-client.Channel:
-			data, _ := json.Marshal(notification.Data)
-			fmt.Fprintf(w, "event: %s\n", notification.Type)
-			fmt.Fprintf(w, "data: %s\n\n", data)
+		case notification, ok := <-client.Channel:
+			if !ok {
+				log.Printf("❌ Canal fechado para cliente %s", client.ID)
+				return false
+			}
+
+			log.Printf("📤 Enviando %s para cliente %s", notification.Type, client.ID)
+
+			c.SSEvent(string(notification.Type), notification)
+
+			log.Printf("✅ Evento %s enviado", notification.Type)
 			return true
 
 		case <-c.Request.Context().Done():
-			log.Printf("Cliente %s desconectou do leilão %d", client.ID, client.LeilaoID)
+			log.Printf("⚠️  Contexto cancelado para cliente %s: %v", client.ID, c.Request.Context().Err())
 			return false
 		}
 	})

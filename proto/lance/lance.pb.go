@@ -325,29 +325,27 @@ func (x *AuctionFinishedNotification) GetLeilaoId() string {
 	return ""
 }
 
-type BidValidatedNotification struct {
+type GetAuctionWinnerRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	LeilaoId      string                 `protobuf:"bytes,1,opt,name=leilao_id,json=leilaoId,proto3" json:"leilao_id,omitempty"`
-	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Valor         float64                `protobuf:"fixed64,3,opt,name=valor,proto3" json:"valor,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
 
-func (x *BidValidatedNotification) Reset() {
-	*x = BidValidatedNotification{}
+func (x *GetAuctionWinnerRequest) Reset() {
+	*x = GetAuctionWinnerRequest{}
 	mi := &file_proto_lance_lance_proto_msgTypes[6]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
 
-func (x *BidValidatedNotification) String() string {
+func (x *GetAuctionWinnerRequest) String() string {
 	return protoimpl.X.MessageStringOf(x)
 }
 
-func (*BidValidatedNotification) ProtoMessage() {}
+func (*GetAuctionWinnerRequest) ProtoMessage() {}
 
-func (x *BidValidatedNotification) ProtoReflect() protoreflect.Message {
+func (x *GetAuctionWinnerRequest) ProtoReflect() protoreflect.Message {
 	mi := &file_proto_lance_lance_proto_msgTypes[6]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
@@ -359,90 +357,76 @@ func (x *BidValidatedNotification) ProtoReflect() protoreflect.Message {
 	return mi.MessageOf(x)
 }
 
-// Deprecated: Use BidValidatedNotification.ProtoReflect.Descriptor instead.
-func (*BidValidatedNotification) Descriptor() ([]byte, []int) {
+// Deprecated: Use GetAuctionWinnerRequest.ProtoReflect.Descriptor instead.
+func (*GetAuctionWinnerRequest) Descriptor() ([]byte, []int) {
 	return file_proto_lance_lance_proto_rawDescGZIP(), []int{6}
 }
 
-func (x *BidValidatedNotification) GetLeilaoId() string {
+func (x *GetAuctionWinnerRequest) GetLeilaoId() string {
 	if x != nil {
 		return x.LeilaoId
 	}
 	return ""
 }
 
-func (x *BidValidatedNotification) GetUserId() string {
+type GetAuctionWinnerResponse struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	Valor         float64                `protobuf:"fixed64,2,opt,name=valor,proto3" json:"valor,omitempty"`
+	HasWinner     bool                   `protobuf:"varint,3,opt,name=has_winner,json=hasWinner,proto3" json:"has_winner,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *GetAuctionWinnerResponse) Reset() {
+	*x = GetAuctionWinnerResponse{}
+	mi := &file_proto_lance_lance_proto_msgTypes[7]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *GetAuctionWinnerResponse) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*GetAuctionWinnerResponse) ProtoMessage() {}
+
+func (x *GetAuctionWinnerResponse) ProtoReflect() protoreflect.Message {
+	mi := &file_proto_lance_lance_proto_msgTypes[7]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use GetAuctionWinnerResponse.ProtoReflect.Descriptor instead.
+func (*GetAuctionWinnerResponse) Descriptor() ([]byte, []int) {
+	return file_proto_lance_lance_proto_rawDescGZIP(), []int{7}
+}
+
+func (x *GetAuctionWinnerResponse) GetUserId() string {
 	if x != nil {
 		return x.UserId
 	}
 	return ""
 }
 
-func (x *BidValidatedNotification) GetValor() float64 {
+func (x *GetAuctionWinnerResponse) GetValor() float64 {
 	if x != nil {
 		return x.Valor
 	}
 	return 0
 }
 
-type BidInvalidatedNotification struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	LeilaoId      string                 `protobuf:"bytes,1,opt,name=leilao_id,json=leilaoId,proto3" json:"leilao_id,omitempty"`
-	UserId        string                 `protobuf:"bytes,2,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	Motivo        string                 `protobuf:"bytes,3,opt,name=motivo,proto3" json:"motivo,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *BidInvalidatedNotification) Reset() {
-	*x = BidInvalidatedNotification{}
-	mi := &file_proto_lance_lance_proto_msgTypes[7]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *BidInvalidatedNotification) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*BidInvalidatedNotification) ProtoMessage() {}
-
-func (x *BidInvalidatedNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_lance_lance_proto_msgTypes[7]
+func (x *GetAuctionWinnerResponse) GetHasWinner() bool {
 	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
+		return x.HasWinner
 	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use BidInvalidatedNotification.ProtoReflect.Descriptor instead.
-func (*BidInvalidatedNotification) Descriptor() ([]byte, []int) {
-	return file_proto_lance_lance_proto_rawDescGZIP(), []int{7}
-}
-
-func (x *BidInvalidatedNotification) GetLeilaoId() string {
-	if x != nil {
-		return x.LeilaoId
-	}
-	return ""
-}
-
-func (x *BidInvalidatedNotification) GetUserId() string {
-	if x != nil {
-		return x.UserId
-	}
-	return ""
-}
-
-func (x *BidInvalidatedNotification) GetMotivo() string {
-	if x != nil {
-		return x.Motivo
-	}
-	return ""
+	return false
 }
 
 type Empty struct {
@@ -503,23 +487,21 @@ const file_proto_lance_lance_proto_rawDesc = "" +
 	"\tleilao_id\x18\x01 \x01(\tR\bleilaoId\x12\x18\n" +
 	"\aduracao\x18\x02 \x01(\x03R\aduracao\":\n" +
 	"\x1bAuctionFinishedNotification\x12\x1b\n" +
-	"\tleilao_id\x18\x01 \x01(\tR\bleilaoId\"f\n" +
-	"\x18BidValidatedNotification\x12\x1b\n" +
-	"\tleilao_id\x18\x01 \x01(\tR\bleilaoId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x14\n" +
-	"\x05valor\x18\x03 \x01(\x01R\x05valor\"j\n" +
-	"\x1aBidInvalidatedNotification\x12\x1b\n" +
-	"\tleilao_id\x18\x01 \x01(\tR\bleilaoId\x12\x17\n" +
-	"\auser_id\x18\x02 \x01(\tR\x06userId\x12\x16\n" +
-	"\x06motivo\x18\x03 \x01(\tR\x06motivo\"\a\n" +
-	"\x05Empty2\xb6\x03\n" +
+	"\tleilao_id\x18\x01 \x01(\tR\bleilaoId\"6\n" +
+	"\x17GetAuctionWinnerRequest\x12\x1b\n" +
+	"\tleilao_id\x18\x01 \x01(\tR\bleilaoId\"h\n" +
+	"\x18GetAuctionWinnerResponse\x12\x17\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12\x14\n" +
+	"\x05valor\x18\x02 \x01(\x01R\x05valor\x12\x1d\n" +
+	"\n" +
+	"has_winner\x18\x03 \x01(\bR\thasWinner\"\a\n" +
+	"\x05Empty2\xfd\x02\n" +
 	"\fLanceService\x128\n" +
 	"\aMakeBid\x12\x15.lance.MakeBidRequest\x1a\x16.lance.MakeBidResponse\x12J\n" +
 	"\rGetHighestBid\x12\x1b.lance.GetHighestBidRequest\x1a\x1c.lance.GetHighestBidResponse\x12G\n" +
 	"\x14NotifyAuctionStarted\x12!.lance.AuctionStartedNotification\x1a\f.lance.Empty\x12I\n" +
-	"\x15NotifyAuctionFinished\x12\".lance.AuctionFinishedNotification\x1a\f.lance.Empty\x12C\n" +
-	"\x12NotifyBidValidated\x12\x1f.lance.BidValidatedNotification\x1a\f.lance.Empty\x12G\n" +
-	"\x14NotifyBidInvalidated\x12!.lance.BidInvalidatedNotification\x1a\f.lance.EmptyB\x1cZ\x1aauction-system/proto/lanceb\x06proto3"
+	"\x15NotifyAuctionFinished\x12\".lance.AuctionFinishedNotification\x1a\f.lance.Empty\x12S\n" +
+	"\x10GetAuctionWinner\x12\x1e.lance.GetAuctionWinnerRequest\x1a\x1f.lance.GetAuctionWinnerResponseB\x1cZ\x1aauction-system/proto/lanceb\x06proto3"
 
 var (
 	file_proto_lance_lance_proto_rawDescOnce sync.Once
@@ -541,8 +523,8 @@ var file_proto_lance_lance_proto_goTypes = []any{
 	(*GetHighestBidResponse)(nil),       // 3: lance.GetHighestBidResponse
 	(*AuctionStartedNotification)(nil),  // 4: lance.AuctionStartedNotification
 	(*AuctionFinishedNotification)(nil), // 5: lance.AuctionFinishedNotification
-	(*BidValidatedNotification)(nil),    // 6: lance.BidValidatedNotification
-	(*BidInvalidatedNotification)(nil),  // 7: lance.BidInvalidatedNotification
+	(*GetAuctionWinnerRequest)(nil),     // 6: lance.GetAuctionWinnerRequest
+	(*GetAuctionWinnerResponse)(nil),    // 7: lance.GetAuctionWinnerResponse
 	(*Empty)(nil),                       // 8: lance.Empty
 }
 var file_proto_lance_lance_proto_depIdxs = []int32{
@@ -550,16 +532,14 @@ var file_proto_lance_lance_proto_depIdxs = []int32{
 	2, // 1: lance.LanceService.GetHighestBid:input_type -> lance.GetHighestBidRequest
 	4, // 2: lance.LanceService.NotifyAuctionStarted:input_type -> lance.AuctionStartedNotification
 	5, // 3: lance.LanceService.NotifyAuctionFinished:input_type -> lance.AuctionFinishedNotification
-	6, // 4: lance.LanceService.NotifyBidValidated:input_type -> lance.BidValidatedNotification
-	7, // 5: lance.LanceService.NotifyBidInvalidated:input_type -> lance.BidInvalidatedNotification
-	1, // 6: lance.LanceService.MakeBid:output_type -> lance.MakeBidResponse
-	3, // 7: lance.LanceService.GetHighestBid:output_type -> lance.GetHighestBidResponse
-	8, // 8: lance.LanceService.NotifyAuctionStarted:output_type -> lance.Empty
-	8, // 9: lance.LanceService.NotifyAuctionFinished:output_type -> lance.Empty
-	8, // 10: lance.LanceService.NotifyBidValidated:output_type -> lance.Empty
-	8, // 11: lance.LanceService.NotifyBidInvalidated:output_type -> lance.Empty
-	6, // [6:12] is the sub-list for method output_type
-	0, // [0:6] is the sub-list for method input_type
+	6, // 4: lance.LanceService.GetAuctionWinner:input_type -> lance.GetAuctionWinnerRequest
+	1, // 5: lance.LanceService.MakeBid:output_type -> lance.MakeBidResponse
+	3, // 6: lance.LanceService.GetHighestBid:output_type -> lance.GetHighestBidResponse
+	8, // 7: lance.LanceService.NotifyAuctionStarted:output_type -> lance.Empty
+	8, // 8: lance.LanceService.NotifyAuctionFinished:output_type -> lance.Empty
+	7, // 9: lance.LanceService.GetAuctionWinner:output_type -> lance.GetAuctionWinnerResponse
+	5, // [5:10] is the sub-list for method output_type
+	0, // [0:5] is the sub-list for method input_type
 	0, // [0:0] is the sub-list for extension type_name
 	0, // [0:0] is the sub-list for extension extendee
 	0, // [0:0] is the sub-list for field type_name

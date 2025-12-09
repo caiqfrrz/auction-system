@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package gateway;
+
+option go_package = "auction-system/proto/gateway";
+
+service GatewayService {
+  rpc NotifyAuctionFinished(AuctionFinishedNotification) returns (Empty);
+  rpc NotifyPaymentLink(PaymentLinkNotification) returns (Empty);
+  rpc NotifyPaymentStatus(PaymentStatusNotification) returns (Empty);
+}
+
+message PaymentLinkNotification {
+  string user_id = 1;
+  string payment_link = 2;
+  string transaction_id = 3;
+  string auction_id = 4;
+}
+
+message PaymentStatusNotification {
+  string transaction_id = 1;
+  string status = 2;
+  string auction_id = 3;
+  string winner_id = 4;
+  double amount = 5;
+}
+
+message AuctionFinishedNotification {
+  string leilao_id = 1;
+}
+
+message Empty {}

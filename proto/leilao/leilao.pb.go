@@ -22,13 +22,12 @@ const (
 )
 
 type CreateAuctionRequest struct {
-	state           protoimpl.MessageState `protogen:"open.v1"`
-	Titulo          string                 `protobuf:"bytes,1,opt,name=titulo,proto3" json:"titulo,omitempty"`
-	Descricao       string                 `protobuf:"bytes,2,opt,name=descricao,proto3" json:"descricao,omitempty"`
-	ValorInicial    float64                `protobuf:"fixed64,3,opt,name=valor_inicial,json=valorInicial,proto3" json:"valor_inicial,omitempty"`
-	DuracaoSegundos int64                  `protobuf:"varint,4,opt,name=duracao_segundos,json=duracaoSegundos,proto3" json:"duracao_segundos,omitempty"`
-	unknownFields   protoimpl.UnknownFields
-	sizeCache       protoimpl.SizeCache
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Description   string                 `protobuf:"bytes,1,opt,name=description,proto3" json:"description,omitempty"`
+	End           string                 `protobuf:"bytes,2,opt,name=end,proto3" json:"end,omitempty"`
+	Start         string                 `protobuf:"bytes,3,opt,name=start,proto3" json:"start,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
 }
 
 func (x *CreateAuctionRequest) Reset() {
@@ -61,32 +60,25 @@ func (*CreateAuctionRequest) Descriptor() ([]byte, []int) {
 	return file_proto_leilao_leilao_proto_rawDescGZIP(), []int{0}
 }
 
-func (x *CreateAuctionRequest) GetTitulo() string {
+func (x *CreateAuctionRequest) GetDescription() string {
 	if x != nil {
-		return x.Titulo
+		return x.Description
 	}
 	return ""
 }
 
-func (x *CreateAuctionRequest) GetDescricao() string {
+func (x *CreateAuctionRequest) GetEnd() string {
 	if x != nil {
-		return x.Descricao
+		return x.End
 	}
 	return ""
 }
 
-func (x *CreateAuctionRequest) GetValorInicial() float64 {
+func (x *CreateAuctionRequest) GetStart() string {
 	if x != nil {
-		return x.ValorInicial
+		return x.Start
 	}
-	return 0
-}
-
-func (x *CreateAuctionRequest) GetDuracaoSegundos() int64 {
-	if x != nil {
-		return x.DuracaoSegundos
-	}
-	return 0
+	return ""
 }
 
 type CreateAuctionResponse struct {
@@ -232,11 +224,10 @@ func (x *ConsultAuctionsResponse) GetAuctions() []*Auction {
 type Auction struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	Id            string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	Titulo        string                 `protobuf:"bytes,2,opt,name=titulo,proto3" json:"titulo,omitempty"`
-	Descricao     string                 `protobuf:"bytes,3,opt,name=descricao,proto3" json:"descricao,omitempty"`
-	ValorInicial  float64                `protobuf:"fixed64,4,opt,name=valor_inicial,json=valorInicial,proto3" json:"valor_inicial,omitempty"`
-	TempoRestante int64                  `protobuf:"varint,5,opt,name=tempo_restante,json=tempoRestante,proto3" json:"tempo_restante,omitempty"`
-	Active        bool                   `protobuf:"varint,6,opt,name=active,proto3" json:"active,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	Start         string                 `protobuf:"bytes,3,opt,name=start,proto3" json:"start,omitempty"`
+	End           string                 `protobuf:"bytes,4,opt,name=end,proto3" json:"end,omitempty"`
+	Active        bool                   `protobuf:"varint,5,opt,name=active,proto3" json:"active,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -278,32 +269,25 @@ func (x *Auction) GetId() string {
 	return ""
 }
 
-func (x *Auction) GetTitulo() string {
+func (x *Auction) GetDescription() string {
 	if x != nil {
-		return x.Titulo
+		return x.Description
 	}
 	return ""
 }
 
-func (x *Auction) GetDescricao() string {
+func (x *Auction) GetStart() string {
 	if x != nil {
-		return x.Descricao
+		return x.Start
 	}
 	return ""
 }
 
-func (x *Auction) GetValorInicial() float64 {
+func (x *Auction) GetEnd() string {
 	if x != nil {
-		return x.ValorInicial
+		return x.End
 	}
-	return 0
-}
-
-func (x *Auction) GetTempoRestante() int64 {
-	if x != nil {
-		return x.TempoRestante
-	}
-	return 0
+	return ""
 }
 
 func (x *Auction) GetActive() bool {
@@ -311,102 +295,6 @@ func (x *Auction) GetActive() bool {
 		return x.Active
 	}
 	return false
-}
-
-type AuctionStartedNotification struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	LeilaoId      string                 `protobuf:"bytes,1,opt,name=leilao_id,json=leilaoId,proto3" json:"leilao_id,omitempty"`
-	Duracao       int64                  `protobuf:"varint,2,opt,name=duracao,proto3" json:"duracao,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AuctionStartedNotification) Reset() {
-	*x = AuctionStartedNotification{}
-	mi := &file_proto_leilao_leilao_proto_msgTypes[5]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AuctionStartedNotification) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AuctionStartedNotification) ProtoMessage() {}
-
-func (x *AuctionStartedNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_leilao_leilao_proto_msgTypes[5]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AuctionStartedNotification.ProtoReflect.Descriptor instead.
-func (*AuctionStartedNotification) Descriptor() ([]byte, []int) {
-	return file_proto_leilao_leilao_proto_rawDescGZIP(), []int{5}
-}
-
-func (x *AuctionStartedNotification) GetLeilaoId() string {
-	if x != nil {
-		return x.LeilaoId
-	}
-	return ""
-}
-
-func (x *AuctionStartedNotification) GetDuracao() int64 {
-	if x != nil {
-		return x.Duracao
-	}
-	return 0
-}
-
-type AuctionFinishedNotification struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	LeilaoId      string                 `protobuf:"bytes,1,opt,name=leilao_id,json=leilaoId,proto3" json:"leilao_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
-}
-
-func (x *AuctionFinishedNotification) Reset() {
-	*x = AuctionFinishedNotification{}
-	mi := &file_proto_leilao_leilao_proto_msgTypes[6]
-	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-	ms.StoreMessageInfo(mi)
-}
-
-func (x *AuctionFinishedNotification) String() string {
-	return protoimpl.X.MessageStringOf(x)
-}
-
-func (*AuctionFinishedNotification) ProtoMessage() {}
-
-func (x *AuctionFinishedNotification) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_leilao_leilao_proto_msgTypes[6]
-	if x != nil {
-		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
-		if ms.LoadMessageInfo() == nil {
-			ms.StoreMessageInfo(mi)
-		}
-		return ms
-	}
-	return mi.MessageOf(x)
-}
-
-// Deprecated: Use AuctionFinishedNotification.ProtoReflect.Descriptor instead.
-func (*AuctionFinishedNotification) Descriptor() ([]byte, []int) {
-	return file_proto_leilao_leilao_proto_rawDescGZIP(), []int{6}
-}
-
-func (x *AuctionFinishedNotification) GetLeilaoId() string {
-	if x != nil {
-		return x.LeilaoId
-	}
-	return ""
 }
 
 type Empty struct {
@@ -417,7 +305,7 @@ type Empty struct {
 
 func (x *Empty) Reset() {
 	*x = Empty{}
-	mi := &file_proto_leilao_leilao_proto_msgTypes[7]
+	mi := &file_proto_leilao_leilao_proto_msgTypes[5]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -429,7 +317,7 @@ func (x *Empty) String() string {
 func (*Empty) ProtoMessage() {}
 
 func (x *Empty) ProtoReflect() protoreflect.Message {
-	mi := &file_proto_leilao_leilao_proto_msgTypes[7]
+	mi := &file_proto_leilao_leilao_proto_msgTypes[5]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -442,44 +330,35 @@ func (x *Empty) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Empty.ProtoReflect.Descriptor instead.
 func (*Empty) Descriptor() ([]byte, []int) {
-	return file_proto_leilao_leilao_proto_rawDescGZIP(), []int{7}
+	return file_proto_leilao_leilao_proto_rawDescGZIP(), []int{5}
 }
 
 var File_proto_leilao_leilao_proto protoreflect.FileDescriptor
 
 const file_proto_leilao_leilao_proto_rawDesc = "" +
 	"\n" +
-	"\x19proto/leilao/leilao.proto\x12\x06leilao\"\x9c\x01\n" +
-	"\x14CreateAuctionRequest\x12\x16\n" +
-	"\x06titulo\x18\x01 \x01(\tR\x06titulo\x12\x1c\n" +
-	"\tdescricao\x18\x02 \x01(\tR\tdescricao\x12#\n" +
-	"\rvalor_inicial\x18\x03 \x01(\x01R\fvalorInicial\x12)\n" +
-	"\x10duracao_segundos\x18\x04 \x01(\x03R\x0fduracaoSegundos\"d\n" +
+	"\x19proto/leilao/leilao.proto\x12\x06leilao\"`\n" +
+	"\x14CreateAuctionRequest\x12 \n" +
+	"\vdescription\x18\x01 \x01(\tR\vdescription\x12\x10\n" +
+	"\x03end\x18\x02 \x01(\tR\x03end\x12\x14\n" +
+	"\x05start\x18\x03 \x01(\tR\x05start\"d\n" +
 	"\x15CreateAuctionResponse\x12\x1b\n" +
 	"\tleilao_id\x18\x01 \x01(\tR\bleilaoId\x12\x18\n" +
 	"\asuccess\x18\x02 \x01(\bR\asuccess\x12\x14\n" +
 	"\x05error\x18\x03 \x01(\tR\x05error\"\x18\n" +
 	"\x16ConsultAuctionsRequest\"F\n" +
 	"\x17ConsultAuctionsResponse\x12+\n" +
-	"\bauctions\x18\x01 \x03(\v2\x0f.leilao.AuctionR\bauctions\"\xb3\x01\n" +
+	"\bauctions\x18\x01 \x03(\v2\x0f.leilao.AuctionR\bauctions\"{\n" +
 	"\aAuction\x12\x0e\n" +
-	"\x02id\x18\x01 \x01(\tR\x02id\x12\x16\n" +
-	"\x06titulo\x18\x02 \x01(\tR\x06titulo\x12\x1c\n" +
-	"\tdescricao\x18\x03 \x01(\tR\tdescricao\x12#\n" +
-	"\rvalor_inicial\x18\x04 \x01(\x01R\fvalorInicial\x12%\n" +
-	"\x0etempo_restante\x18\x05 \x01(\x03R\rtempoRestante\x12\x16\n" +
-	"\x06active\x18\x06 \x01(\bR\x06active\"S\n" +
-	"\x1aAuctionStartedNotification\x12\x1b\n" +
-	"\tleilao_id\x18\x01 \x01(\tR\bleilaoId\x12\x18\n" +
-	"\aduracao\x18\x02 \x01(\x03R\aduracao\":\n" +
-	"\x1bAuctionFinishedNotification\x12\x1b\n" +
-	"\tleilao_id\x18\x01 \x01(\tR\bleilaoId\"\a\n" +
-	"\x05Empty2\xc9\x02\n" +
+	"\x02id\x18\x01 \x01(\tR\x02id\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12\x14\n" +
+	"\x05start\x18\x03 \x01(\tR\x05start\x12\x10\n" +
+	"\x03end\x18\x04 \x01(\tR\x03end\x12\x16\n" +
+	"\x06active\x18\x05 \x01(\bR\x06active\"\a\n" +
+	"\x05Empty2\xb1\x01\n" +
 	"\rLeilaoService\x12L\n" +
 	"\rCreateAuction\x12\x1c.leilao.CreateAuctionRequest\x1a\x1d.leilao.CreateAuctionResponse\x12R\n" +
-	"\x0fConsultAuctions\x12\x1e.leilao.ConsultAuctionsRequest\x1a\x1f.leilao.ConsultAuctionsResponse\x12I\n" +
-	"\x14NotifyAuctionStarted\x12\".leilao.AuctionStartedNotification\x1a\r.leilao.Empty\x12K\n" +
-	"\x15NotifyAuctionFinished\x12#.leilao.AuctionFinishedNotification\x1a\r.leilao.EmptyB\x1dZ\x1bauction-system/proto/leilaob\x06proto3"
+	"\x0fConsultAuctions\x12\x1e.leilao.ConsultAuctionsRequest\x1a\x1f.leilao.ConsultAuctionsResponseB\x1dZ\x1bauction-system/proto/leilaob\x06proto3"
 
 var (
 	file_proto_leilao_leilao_proto_rawDescOnce sync.Once
@@ -493,29 +372,23 @@ func file_proto_leilao_leilao_proto_rawDescGZIP() []byte {
 	return file_proto_leilao_leilao_proto_rawDescData
 }
 
-var file_proto_leilao_leilao_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_proto_leilao_leilao_proto_msgTypes = make([]protoimpl.MessageInfo, 6)
 var file_proto_leilao_leilao_proto_goTypes = []any{
-	(*CreateAuctionRequest)(nil),        // 0: leilao.CreateAuctionRequest
-	(*CreateAuctionResponse)(nil),       // 1: leilao.CreateAuctionResponse
-	(*ConsultAuctionsRequest)(nil),      // 2: leilao.ConsultAuctionsRequest
-	(*ConsultAuctionsResponse)(nil),     // 3: leilao.ConsultAuctionsResponse
-	(*Auction)(nil),                     // 4: leilao.Auction
-	(*AuctionStartedNotification)(nil),  // 5: leilao.AuctionStartedNotification
-	(*AuctionFinishedNotification)(nil), // 6: leilao.AuctionFinishedNotification
-	(*Empty)(nil),                       // 7: leilao.Empty
+	(*CreateAuctionRequest)(nil),    // 0: leilao.CreateAuctionRequest
+	(*CreateAuctionResponse)(nil),   // 1: leilao.CreateAuctionResponse
+	(*ConsultAuctionsRequest)(nil),  // 2: leilao.ConsultAuctionsRequest
+	(*ConsultAuctionsResponse)(nil), // 3: leilao.ConsultAuctionsResponse
+	(*Auction)(nil),                 // 4: leilao.Auction
+	(*Empty)(nil),                   // 5: leilao.Empty
 }
 var file_proto_leilao_leilao_proto_depIdxs = []int32{
 	4, // 0: leilao.ConsultAuctionsResponse.auctions:type_name -> leilao.Auction
 	0, // 1: leilao.LeilaoService.CreateAuction:input_type -> leilao.CreateAuctionRequest
 	2, // 2: leilao.LeilaoService.ConsultAuctions:input_type -> leilao.ConsultAuctionsRequest
-	5, // 3: leilao.LeilaoService.NotifyAuctionStarted:input_type -> leilao.AuctionStartedNotification
-	6, // 4: leilao.LeilaoService.NotifyAuctionFinished:input_type -> leilao.AuctionFinishedNotification
-	1, // 5: leilao.LeilaoService.CreateAuction:output_type -> leilao.CreateAuctionResponse
-	3, // 6: leilao.LeilaoService.ConsultAuctions:output_type -> leilao.ConsultAuctionsResponse
-	7, // 7: leilao.LeilaoService.NotifyAuctionStarted:output_type -> leilao.Empty
-	7, // 8: leilao.LeilaoService.NotifyAuctionFinished:output_type -> leilao.Empty
-	5, // [5:9] is the sub-list for method output_type
-	1, // [1:5] is the sub-list for method input_type
+	1, // 3: leilao.LeilaoService.CreateAuction:output_type -> leilao.CreateAuctionResponse
+	3, // 4: leilao.LeilaoService.ConsultAuctions:output_type -> leilao.ConsultAuctionsResponse
+	3, // [3:5] is the sub-list for method output_type
+	1, // [1:3] is the sub-list for method input_type
 	1, // [1:1] is the sub-list for extension type_name
 	1, // [1:1] is the sub-list for extension extendee
 	0, // [0:1] is the sub-list for field type_name
@@ -532,7 +405,7 @@ func file_proto_leilao_leilao_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_proto_leilao_leilao_proto_rawDesc), len(file_proto_leilao_leilao_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   6,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

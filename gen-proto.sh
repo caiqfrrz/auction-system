@@ -4,6 +4,11 @@ set -e
 
 echo "Generating protobuf code..."
 
+# gateway
+protoc --go_out=. --go_opt=paths=source_relative \
+        --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+        proto/gateway/gateway.proto
+
 # Gerar código para leilao
 protoc --go_out=. --go_opt=paths=source_relative \
        --go-grpc_out=. --go-grpc_opt=paths=source_relative \

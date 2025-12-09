@@ -23,8 +23,7 @@ const (
 	LanceService_GetHighestBid_FullMethodName         = "/lance.LanceService/GetHighestBid"
 	LanceService_NotifyAuctionStarted_FullMethodName  = "/lance.LanceService/NotifyAuctionStarted"
 	LanceService_NotifyAuctionFinished_FullMethodName = "/lance.LanceService/NotifyAuctionFinished"
-	LanceService_NotifyBidValidated_FullMethodName    = "/lance.LanceService/NotifyBidValidated"
-	LanceService_NotifyBidInvalidated_FullMethodName  = "/lance.LanceService/NotifyBidInvalidated"
+	LanceService_GetAuctionWinner_FullMethodName      = "/lance.LanceService/GetAuctionWinner"
 )
 
 // LanceServiceClient is the client API for LanceService service.
@@ -35,8 +34,7 @@ type LanceServiceClient interface {
 	GetHighestBid(ctx context.Context, in *GetHighestBidRequest, opts ...grpc.CallOption) (*GetHighestBidResponse, error)
 	NotifyAuctionStarted(ctx context.Context, in *AuctionStartedNotification, opts ...grpc.CallOption) (*Empty, error)
 	NotifyAuctionFinished(ctx context.Context, in *AuctionFinishedNotification, opts ...grpc.CallOption) (*Empty, error)
-	NotifyBidValidated(ctx context.Context, in *BidValidatedNotification, opts ...grpc.CallOption) (*Empty, error)
-	NotifyBidInvalidated(ctx context.Context, in *BidInvalidatedNotification, opts ...grpc.CallOption) (*Empty, error)
+	GetAuctionWinner(ctx context.Context, in *GetAuctionWinnerRequest, opts ...grpc.CallOption) (*GetAuctionWinnerResponse, error)
 }
 
 type lanceServiceClient struct {
@@ -87,20 +85,10 @@ func (c *lanceServiceClient) NotifyAuctionFinished(ctx context.Context, in *Auct
 	return out, nil
 }
 
-func (c *lanceServiceClient) NotifyBidValidated(ctx context.Context, in *BidValidatedNotification, opts ...grpc.CallOption) (*Empty, error) {
+func (c *lanceServiceClient) GetAuctionWinner(ctx context.Context, in *GetAuctionWinnerRequest, opts ...grpc.CallOption) (*GetAuctionWinnerResponse, error) {
 	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, LanceService_NotifyBidValidated_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *lanceServiceClient) NotifyBidInvalidated(ctx context.Context, in *BidInvalidatedNotification, opts ...grpc.CallOption) (*Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, LanceService_NotifyBidInvalidated_FullMethodName, in, out, cOpts...)
+	out := new(GetAuctionWinnerResponse)
+	err := c.cc.Invoke(ctx, LanceService_GetAuctionWinner_FullMethodName, in, out, cOpts...)
 	if err != nil {
 		return nil, err
 	}
@@ -115,8 +103,7 @@ type LanceServiceServer interface {
 	GetHighestBid(context.Context, *GetHighestBidRequest) (*GetHighestBidResponse, error)
 	NotifyAuctionStarted(context.Context, *AuctionStartedNotification) (*Empty, error)
 	NotifyAuctionFinished(context.Context, *AuctionFinishedNotification) (*Empty, error)
-	NotifyBidValidated(context.Context, *BidValidatedNotification) (*Empty, error)
-	NotifyBidInvalidated(context.Context, *BidInvalidatedNotification) (*Empty, error)
+	GetAuctionWinner(context.Context, *GetAuctionWinnerRequest) (*GetAuctionWinnerResponse, error)
 	mustEmbedUnimplementedLanceServiceServer()
 }
 
@@ -139,11 +126,8 @@ func (UnimplementedLanceServiceServer) NotifyAuctionStarted(context.Context, *Au
 func (UnimplementedLanceServiceServer) NotifyAuctionFinished(context.Context, *AuctionFinishedNotification) (*Empty, error) {
 	return nil, status.Error(codes.Unimplemented, "method NotifyAuctionFinished not implemented")
 }
-func (UnimplementedLanceServiceServer) NotifyBidValidated(context.Context, *BidValidatedNotification) (*Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method NotifyBidValidated not implemented")
-}
-func (UnimplementedLanceServiceServer) NotifyBidInvalidated(context.Context, *BidInvalidatedNotification) (*Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method NotifyBidInvalidated not implemented")
+func (UnimplementedLanceServiceServer) GetAuctionWinner(context.Context, *GetAuctionWinnerRequest) (*GetAuctionWinnerResponse, error) {
+	return nil, status.Error(codes.Unimplemented, "method GetAuctionWinner not implemented")
 }
 func (UnimplementedLanceServiceServer) mustEmbedUnimplementedLanceServiceServer() {}
 func (UnimplementedLanceServiceServer) testEmbeddedByValue()                      {}
@@ -238,38 +222,20 @@ func _LanceService_NotifyAuctionFinished_Handler(srv interface{}, ctx context.Co
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LanceService_NotifyBidValidated_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BidValidatedNotification)
+func _LanceService_GetAuctionWinner_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(GetAuctionWinnerRequest)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(LanceServiceServer).NotifyBidValidated(ctx, in)
+		return srv.(LanceServiceServer).GetAuctionWinner(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: LanceService_NotifyBidValidated_FullMethodName,
+		FullMethod: LanceService_GetAuctionWinner_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LanceServiceServer).NotifyBidValidated(ctx, req.(*BidValidatedNotification))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _LanceService_NotifyBidInvalidated_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BidInvalidatedNotification)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(LanceServiceServer).NotifyBidInvalidated(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: LanceService_NotifyBidInvalidated_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LanceServiceServer).NotifyBidInvalidated(ctx, req.(*BidInvalidatedNotification))
+		return srv.(LanceServiceServer).GetAuctionWinner(ctx, req.(*GetAuctionWinnerRequest))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -298,12 +264,8 @@ var LanceService_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _LanceService_NotifyAuctionFinished_Handler,
 		},
 		{
-			MethodName: "NotifyBidValidated",
-			Handler:    _LanceService_NotifyBidValidated_Handler,
-		},
-		{
-			MethodName: "NotifyBidInvalidated",
-			Handler:    _LanceService_NotifyBidInvalidated_Handler,
+			MethodName: "GetAuctionWinner",
+			Handler:    _LanceService_GetAuctionWinner_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

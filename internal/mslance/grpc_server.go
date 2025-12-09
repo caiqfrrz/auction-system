@@ -13,53 +13,11 @@ import (
 
 type MsLanceGRPCServer struct {
 	pb.UnimplementedLanceServiceServer
-	msLance       *MSLance
-	notifyGateway func(eventType string, data interface{})
+	msLance *MSLance
 }
 
 func NewMsLanceGRPCServer(ms *MSLance) *MsLanceGRPCServer {
-	server := &MsLanceGRPCServer{msLance: ms}
-
-	ms.SetBidCallbacks(
-		server.onBidValidated,
-		server.onBidInvalidated,
-		server.onAuctionWinner,
-	)
-
-	return server
-}
-
-func (s *MsLanceGRPCServer) onBidValidated(bid models.LanceRealizado) {
-	log.Printf("[Callback] Lance validado: %+v", bid)
-	if s.notifyGateway != nil {
-		s.notifyGateway("lance_validado", bid)
-	}
-}
-
-func (s *MsLanceGRPCServer) onBidInvalidated(leilaoID, userID string, valor float64, motivo string) {
-	log.Printf("[Callback] Lance invalidado: leilao=%s, user=%s, motivo=%s", leilaoID, userID, motivo)
-
-	data := map[string]interface{}{
-		"leilao_id": leilaoID,
-		"user_id":   userID,
-		"valor":     valor,
-		"motivo":    motivo,
-	}
-
-	if s.notifyGateway != nil {
-		s.notifyGateway("lance_invalidado", data)
-	}
-}
-
-func (s *MsLanceGRPCServer) onAuctionWinner(vencedor models.LeilaoVencedor) {
-	log.Printf("[Callback] Vencedor: %+v", vencedor)
-	if s.notifyGateway != nil {
-		s.notifyGateway("leilao_vencedor", vencedor)
-	}
-}
-
-func (s *MsLanceGRPCServer) SetGatewayCallback(callback func(string, interface{})) {
-	s.notifyGateway = callback
+	return &MsLanceGRPCServer{msLance: ms}
 }
 
 func (s *MsLanceGRPCServer) MakeBid(ctx context.Context, req *pb.MakeBidRequest) (*pb.MakeBidResponse, error) {
@@ -97,6 +55,18 @@ func (s *MsLanceGRPCServer) GetHighestBid(ctx context.Context, req *pb.GetHighes
 	}, nil
 }
 
+func (s *MsLanceGRPCServer) GetAuctionWinner(ctx context.Context, req *pb.GetAuctionWinnerRequest) (*pb.GetAuctionWinnerResponse, error) {
+	log.Printf("[MSLance gRPC] GetAuctionWinner: leilao=%s", req.LeilaoId)
+
+	userID, valor, hasWinner := s.msLance.GetAuctionWinner(req.LeilaoId)
+
+	return &pb.GetAuctionWinnerResponse{
+		UserId:    userID,
+		Valor:     valor,
+		HasWinner: hasWinner,
+	}, nil
+}
+
 func (s *MsLanceGRPCServer) NotifyAuctionStarted(ctx context.Context, notif *pb.AuctionStartedNotification) (*pb.Empty, error) {
 	log.Printf("[MSLance gRPC] Auction started: %s", notif.LeilaoId)
 
@@ -125,30 +95,19 @@ func (s *MsLanceGRPCServer) NotifyAuctionFinished(ctx context.Context, notif *pb
 		leilao.Ativo = false
 		log.Printf("Leilão %s finalizado. Vencedor: %s (%.2f)",
 			leilao.ID, leilao.Vencedor, leilao.MaiorLance)
-
 	}
 
 	return &pb.Empty{}, nil
 }
 
-func (s *MsLanceGRPCServer) NotifyBidValidated(ctx context.Context, notif *pb.BidValidatedNotification) (*pb.Empty, error) {
-	log.Printf("[MSLance gRPC] Bid validated: %s - %.2f", notif.LeilaoId, notif.Valor)
-	return &pb.Empty{}, nil
-}
-
-func (s *MsLanceGRPCServer) NotifyBidInvalidated(ctx context.Context, notif *pb.BidInvalidatedNotification) (*pb.Empty, error) {
-	log.Printf("[MSLance gRPC] Bid invalidated: %s - %s", notif.LeilaoId, notif.Motivo)
-	return &pb.Empty{}, nil
-}
-
-func StartGRPCServer(msLance *MSLance, port string) (*grpc.Server, error) {
+func StartGRPCServer(serverInstance *MsLanceGRPCServer, port string) (*grpc.Server, error) {
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
 		return nil, fmt.Errorf("failed to listen: %w", err)
 	}
 
 	grpcServer := grpc.NewServer()
-	pb.RegisterLanceServiceServer(grpcServer, NewMsLanceGRPCServer(msLance))
+	pb.RegisterLanceServiceServer(grpcServer, serverInstance)
 
 	log.Printf("🚀 MSLance gRPC server listening on port %s", port)
 

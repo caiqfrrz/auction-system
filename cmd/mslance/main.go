@@ -20,12 +20,14 @@ func main() {
 		grpcPort = "50052"
 	}
 
-	grpcServer, err := mslance.StartGRPCServer(msLance, grpcPort)
+	grpcServerInstance := mslance.NewMsLanceGRPCServer(msLance)
+
+	grpcServer, err := mslance.StartGRPCServer(grpcServerInstance, grpcPort)
 	if err != nil {
 		log.Fatalf("Failed to start gRPC server: %v", err)
 	}
 
-	log.Println("MSLance iniciado")
+	log.Println("✅ MSLance iniciado")
 
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)

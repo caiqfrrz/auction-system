@@ -19,10 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion9
 
 const (
-	LeilaoService_CreateAuction_FullMethodName         = "/leilao.LeilaoService/CreateAuction"
-	LeilaoService_ConsultAuctions_FullMethodName       = "/leilao.LeilaoService/ConsultAuctions"
-	LeilaoService_NotifyAuctionStarted_FullMethodName  = "/leilao.LeilaoService/NotifyAuctionStarted"
-	LeilaoService_NotifyAuctionFinished_FullMethodName = "/leilao.LeilaoService/NotifyAuctionFinished"
+	LeilaoService_CreateAuction_FullMethodName   = "/leilao.LeilaoService/CreateAuction"
+	LeilaoService_ConsultAuctions_FullMethodName = "/leilao.LeilaoService/ConsultAuctions"
 )
 
 // LeilaoServiceClient is the client API for LeilaoService service.
@@ -31,8 +29,6 @@ const (
 type LeilaoServiceClient interface {
 	CreateAuction(ctx context.Context, in *CreateAuctionRequest, opts ...grpc.CallOption) (*CreateAuctionResponse, error)
 	ConsultAuctions(ctx context.Context, in *ConsultAuctionsRequest, opts ...grpc.CallOption) (*ConsultAuctionsResponse, error)
-	NotifyAuctionStarted(ctx context.Context, in *AuctionStartedNotification, opts ...grpc.CallOption) (*Empty, error)
-	NotifyAuctionFinished(ctx context.Context, in *AuctionFinishedNotification, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type leilaoServiceClient struct {
@@ -63,34 +59,12 @@ func (c *leilaoServiceClient) ConsultAuctions(ctx context.Context, in *ConsultAu
 	return out, nil
 }
 
-func (c *leilaoServiceClient) NotifyAuctionStarted(ctx context.Context, in *AuctionStartedNotification, opts ...grpc.CallOption) (*Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, LeilaoService_NotifyAuctionStarted_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *leilaoServiceClient) NotifyAuctionFinished(ctx context.Context, in *AuctionFinishedNotification, opts ...grpc.CallOption) (*Empty, error) {
-	cOpts := append([]grpc.CallOption{grpc.StaticMethod()}, opts...)
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, LeilaoService_NotifyAuctionFinished_FullMethodName, in, out, cOpts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // LeilaoServiceServer is the server API for LeilaoService service.
 // All implementations must embed UnimplementedLeilaoServiceServer
 // for forward compatibility.
 type LeilaoServiceServer interface {
 	CreateAuction(context.Context, *CreateAuctionRequest) (*CreateAuctionResponse, error)
 	ConsultAuctions(context.Context, *ConsultAuctionsRequest) (*ConsultAuctionsResponse, error)
-	NotifyAuctionStarted(context.Context, *AuctionStartedNotification) (*Empty, error)
-	NotifyAuctionFinished(context.Context, *AuctionFinishedNotification) (*Empty, error)
 	mustEmbedUnimplementedLeilaoServiceServer()
 }
 
@@ -106,12 +80,6 @@ func (UnimplementedLeilaoServiceServer) CreateAuction(context.Context, *CreateAu
 }
 func (UnimplementedLeilaoServiceServer) ConsultAuctions(context.Context, *ConsultAuctionsRequest) (*ConsultAuctionsResponse, error) {
 	return nil, status.Error(codes.Unimplemented, "method ConsultAuctions not implemented")
-}
-func (UnimplementedLeilaoServiceServer) NotifyAuctionStarted(context.Context, *AuctionStartedNotification) (*Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method NotifyAuctionStarted not implemented")
-}
-func (UnimplementedLeilaoServiceServer) NotifyAuctionFinished(context.Context, *AuctionFinishedNotification) (*Empty, error) {
-	return nil, status.Error(codes.Unimplemented, "method NotifyAuctionFinished not implemented")
 }
 func (UnimplementedLeilaoServiceServer) mustEmbedUnimplementedLeilaoServiceServer() {}
 func (UnimplementedLeilaoServiceServer) testEmbeddedByValue()                       {}
@@ -170,42 +138,6 @@ func _LeilaoService_ConsultAuctions_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
-func _LeilaoService_NotifyAuctionStarted_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AuctionStartedNotification)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(LeilaoServiceServer).NotifyAuctionStarted(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: LeilaoService_NotifyAuctionStarted_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LeilaoServiceServer).NotifyAuctionStarted(ctx, req.(*AuctionStartedNotification))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _LeilaoService_NotifyAuctionFinished_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(AuctionFinishedNotification)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(LeilaoServiceServer).NotifyAuctionFinished(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: LeilaoService_NotifyAuctionFinished_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(LeilaoServiceServer).NotifyAuctionFinished(ctx, req.(*AuctionFinishedNotification))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // LeilaoService_ServiceDesc is the grpc.ServiceDesc for LeilaoService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -220,14 +152,6 @@ var LeilaoService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "ConsultAuctions",
 			Handler:    _LeilaoService_ConsultAuctions_Handler,
-		},
-		{
-			MethodName: "NotifyAuctionStarted",
-			Handler:    _LeilaoService_NotifyAuctionStarted_Handler,
-		},
-		{
-			MethodName: "NotifyAuctionFinished",
-			Handler:    _LeilaoService_NotifyAuctionFinished_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

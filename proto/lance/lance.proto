@@ -9,8 +9,7 @@ service LanceService {
   rpc GetHighestBid(GetHighestBidRequest) returns (GetHighestBidResponse);
   rpc NotifyAuctionStarted(AuctionStartedNotification) returns (Empty);
   rpc NotifyAuctionFinished(AuctionFinishedNotification) returns (Empty);
-  rpc NotifyBidValidated(BidValidatedNotification) returns (Empty);
-  rpc NotifyBidInvalidated(BidInvalidatedNotification) returns (Empty);
+  rpc GetAuctionWinner(GetAuctionWinnerRequest) returns (GetAuctionWinnerResponse);
 }
 
 message MakeBidRequest {
@@ -42,16 +41,14 @@ message AuctionFinishedNotification {
   string leilao_id = 1;
 }
 
-message BidValidatedNotification {
+message GetAuctionWinnerRequest {
   string leilao_id = 1;
-  string user_id = 2;
-  double valor = 3;
 }
 
-message BidInvalidatedNotification {
-  string leilao_id = 1;
-  string user_id = 2;
-  string motivo = 3;
+message GetAuctionWinnerResponse {
+  string user_id = 1;
+  double valor = 2;
+  bool has_winner = 3;
 }
 
 message Empty {}

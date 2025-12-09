@@ -21,12 +21,25 @@ func NewLeilaoGRPCServer(ms *MsLeilao) *LeilaoGRPCServer {
 }
 
 func (s *LeilaoGRPCServer) CreateAuction(ctx context.Context, req *pb.CreateAuctionRequest) (*pb.CreateAuctionResponse, error) {
-	log.Printf("[MSLeilao gRPC] CreateAuction: %s", req.Titulo)
+	log.Printf("[MSLeilao gRPC] CreateAuction: %s", req.Description)
 
-	startTime := time.Now()
-	endTime := startTime.Add(time.Duration(req.DuracaoSegundos) * time.Second)
+	startTime, err := time.Parse(time.RFC3339, req.Start)
+	if err != nil {
+		return &pb.CreateAuctionResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid start time: %v", err),
+		}, nil
+	}
 
-	err := s.msLeilao.CreateAuction(req.Titulo, startTime, endTime)
+	endTime, err := time.Parse(time.RFC3339, req.End)
+	if err != nil {
+		return &pb.CreateAuctionResponse{
+			Success: false,
+			Error:   fmt.Sprintf("invalid end time: %v", err),
+		}, nil
+	}
+
+	err = s.msLeilao.CreateAuction(req.Description, startTime, endTime)
 
 	if err != nil {
 		return &pb.CreateAuctionResponse{
@@ -51,35 +64,16 @@ func (s *LeilaoGRPCServer) ConsultAuctions(ctx context.Context, req *pb.ConsultA
 
 	var pbAuctions []*pb.Auction
 	for _, a := range auctions {
-		tempoRestante := int64(0)
-		if a.Ativo {
-			tempoRestante = int64(time.Until(a.Fim).Seconds())
-			if tempoRestante < 0 {
-				tempoRestante = 0
-			}
-		}
-
 		pbAuctions = append(pbAuctions, &pb.Auction{
-			Id:            a.ID,
-			Titulo:        a.Descricao,
-			Descricao:     a.Descricao,
-			ValorInicial:  0,
-			TempoRestante: tempoRestante,
-			Active:        a.Ativo,
+			Id:          a.ID,
+			Description: a.Descricao,
+			Start:       a.Inicio.Format(time.RFC3339),
+			End:         a.Fim.Format(time.RFC3339),
+			Active:      a.Ativo,
 		})
 	}
 
 	return &pb.ConsultAuctionsResponse{Auctions: pbAuctions}, nil
-}
-
-func (s *LeilaoGRPCServer) NotifyAuctionStarted(ctx context.Context, notif *pb.AuctionStartedNotification) (*pb.Empty, error) {
-	log.Printf("[MSLeilao gRPC] Auction started: %s", notif.LeilaoId)
-	return &pb.Empty{}, nil
-}
-
-func (s *LeilaoGRPCServer) NotifyAuctionFinished(ctx context.Context, notif *pb.AuctionFinishedNotification) (*pb.Empty, error) {
-	log.Printf("[MSLeilao gRPC] Auction finished: %s", notif.LeilaoId)
-	return &pb.Empty{}, nil
 }
 
 func StartGRPCServer(msLeilao *MsLeilao, port string) (*grpc.Server, error) {

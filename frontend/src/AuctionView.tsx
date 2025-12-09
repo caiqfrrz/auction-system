@@ -38,7 +38,7 @@ function AuctionView({ auction, onClose }: Props) {
       await api("/make-bid", {
         method: "POST",
         body: JSON.stringify({
-          valor: bidValue,
+          valor: Number(bidValue),
           leilao_id: auction.id,
           user_id: userId,
         }),

@@ -123,7 +123,7 @@ function App() {
     try {
       const response = await api("/consult-auctions");
 
-      const auctionsTyped: Auction[] = response.map((a: any) => ({
+      const auctionsTyped: Auction[] = response.auctions.map((a: any) => ({
         id: a.id,
         description: a.description,
         start: new Date(a.start),
