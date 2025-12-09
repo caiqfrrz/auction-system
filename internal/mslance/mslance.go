@@ -2,13 +2,9 @@ package mslance
 
 import (
 	"auction-system/pkg/models"
-	"auction-system/pkg/rabbitmq"
-	"encoding/json"
 	"fmt"
 	"log"
 	"sync"
-
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type LeilaoStatus struct {
@@ -20,45 +16,28 @@ type LeilaoStatus struct {
 }
 
 type MSLance struct {
-	ch      *amqp.Channel
 	leiloes map[string]*LeilaoStatus
 	mu      sync.Mutex
+	// Callbacks para notificar eventos
+	onBidValidated   func(models.LanceRealizado)
+	onBidInvalidated func(string, string, float64, string) // leilaoID, userID, valor, motivo
+	onAuctionWinner  func(models.LeilaoVencedor)
 }
 
-func NewMSLance(ch *amqp.Channel) *MSLance {
+func NewMSLance() *MSLance {
 	return &MSLance{
-		ch:      ch,
 		leiloes: make(map[string]*LeilaoStatus),
 	}
 }
 
-// Inicializa a exchange e faz o binding das filas
-func (m *MSLance) DeclareExchangeAndQueues() {
-	rabbitmq.DeclareExchange(m.ch, "leilao_events", "topic")
-
-	rabbitmq.DeclareQueue(m.ch, "lance_realizado")
-	rabbitmq.BindQueueToExchange(m.ch, "lance_realizado", "lance.realizado", "leilao_events")
-
-	rabbitmq.DeclareQueue(m.ch, "leilao_iniciado")
-	rabbitmq.BindQueueToExchange(m.ch, "leilao_iniciado", "leilao.iniciado", "leilao_events")
-
-	rabbitmq.DeclareQueue(m.ch, "leilao_finalizado")
-	rabbitmq.BindQueueToExchange(m.ch, "leilao_finalizado", "leilao.finalizado", "leilao_events")
-
-	rabbitmq.DeclareQueue(m.ch, "lance_validado")
-	rabbitmq.BindQueueToExchange(m.ch, "lance_validado", "lance.validado", "leilao_events")
-
-	rabbitmq.DeclareQueue(m.ch, "lance_invalidado")
-	rabbitmq.BindQueueToExchange(m.ch, "lance_invalidado", "lance.invalidado", "leilao_events")
-
-	rabbitmq.DeclareQueue(m.ch, "leilao_vencedor")
-	rabbitmq.BindQueueToExchange(m.ch, "leilao_vencedor", "leilao.vencedor", "leilao_events")
-
-	rabbitmq.DeclareQueue(m.ch, "mspag_leilao_vencedor")
-	rabbitmq.BindQueueToExchange(m.ch, "mspag_leilao_vencedor", "leilao.vencedor", "leilao_events")
-
-	rabbitmq.DeclareQueue(m.ch, "cliente_registrado")
-	rabbitmq.BindQueueToExchange(m.ch, "cliente_registrado", "cliente.registrado", "leilao_events")
+func (m *MSLance) SetBidCallbacks(
+	onValidated func(models.LanceRealizado),
+	onInvalidated func(string, string, float64, string),
+	onWinner func(models.LeilaoVencedor),
+) {
+	m.onBidValidated = onValidated
+	m.onBidInvalidated = onInvalidated
+	m.onAuctionWinner = onWinner
 }
 
 func (m *MSLance) MakeBid(bid models.LanceRealizado) error {
@@ -74,14 +53,10 @@ func (m *MSLance) MakeBid(bid models.LanceRealizado) error {
 	if !leilao.Ativo {
 		log.Printf("Leilão %s não está ativo", bid.LeilaoID)
 
-		invalidado := map[string]interface{}{
-			"leilao_id": bid.LeilaoID,
-			"user_id":   bid.UserID,
-			"valor":     bid.Valor,
-			"motivo":    "Leilão não está ativo",
+		// Notificar via callback
+		if m.onBidInvalidated != nil {
+			m.onBidInvalidated(bid.LeilaoID, bid.UserID, bid.Valor, "Leilão não está ativo")
 		}
-		body, _ := json.Marshal(invalidado)
-		rabbitmq.PublishToExchange(m.ch, "leilao_events", "lance.invalidado", body)
 
 		return fmt.Errorf("leilão %s não está ativo", bid.LeilaoID)
 	}
@@ -89,33 +64,32 @@ func (m *MSLance) MakeBid(bid models.LanceRealizado) error {
 	if bid.Valor <= leilao.MaiorLance {
 		log.Printf("Lance invalidado: %.2f <= %.2f (leilão %s)", bid.Valor, leilao.MaiorLance, bid.LeilaoID)
 
-		invalidado := map[string]interface{}{
-			"leilao_id": bid.LeilaoID,
-			"user_id":   bid.UserID,
-			"valor":     bid.Valor,
-			"motivo":    fmt.Sprintf("Lance deve ser maior que %.2f", leilao.MaiorLance),
-		}
-		body, _ := json.Marshal(invalidado)
-		rabbitmq.PublishToExchange(m.ch, "leilao_events", "lance.invalidado", body)
+		motivo := fmt.Sprintf("Lance deve ser maior que %.2f", leilao.MaiorLance)
 
-		return fmt.Errorf("lance deve ser maior que %.2f", leilao.MaiorLance)
+		// Notificar via callback
+		if m.onBidInvalidated != nil {
+			m.onBidInvalidated(bid.LeilaoID, bid.UserID, bid.Valor, motivo)
+		}
+
+		return fmt.Errorf(motivo)
 	}
 
 	leilao.MaiorLance = bid.Valor
 	leilao.Vencedor = bid.UserID
 
-	bidByte, err := json.Marshal(bid)
-	if err != nil {
-		return err
-	}
-
 	log.Printf("✅ Lance validado: %.2f por %s (leilão %s)", bid.Valor, bid.UserID, bid.LeilaoID)
-	rabbitmq.PublishToExchange(m.ch, "leilao_events", "lance.validado", bidByte)
+
+	if m.onBidValidated != nil {
+		m.onBidValidated(bid)
+	}
 
 	return nil
 }
 
 func (m *MSLance) GetHighestBid(auctionID string) (float64, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
 	auction, ok := m.leiloes[auctionID]
 	if !ok {
 		log.Printf("Leilão %s não encontrado", auctionID)
@@ -125,50 +99,43 @@ func (m *MSLance) GetHighestBid(auctionID string) (float64, error) {
 	return auction.MaiorLance, nil
 }
 
-func (m *MSLance) ListenLeilaoIniciado() {
-	msgs, _ := m.ch.Consume("leilao_iniciado", "", true, false, false, false, nil)
-	go func() {
-		for d := range msgs {
-			var leilao models.LeilaoIniciado
-			if err := json.Unmarshal(d.Body, &leilao); err == nil {
-				m.mu.Lock()
-				m.leiloes[leilao.ID] = &LeilaoStatus{
-					ID:         leilao.ID,
-					Descricao:  leilao.Descricao,
-					Ativo:      true,
-					MaiorLance: 0,
-					Vencedor:   "",
-				}
-				m.mu.Unlock()
-				log.Printf("Leilão iniciado: %s (%s)", leilao.Descricao, leilao.ID)
-			}
-		}
-	}()
+// Chamado via gRPC
+func (m *MSLance) HandleAuctionStarted(leilaoID string, duracao int64) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	m.leiloes[leilaoID] = &LeilaoStatus{
+		ID:         leilaoID,
+		Ativo:      true,
+		MaiorLance: 0,
+		Vencedor:   "",
+	}
+
+	log.Printf("Leilão iniciado: %s", leilaoID)
 }
 
-func (m *MSLance) ListenLeilaoFinalizado() {
-	msgs, _ := m.ch.Consume("leilao_finalizado", "", true, false, false, false, nil)
-	go func() {
-		for d := range msgs {
-			var finalizado struct {
-				ID string `json:"id"`
+// Chamado via gRPC
+func (m *MSLance) HandleAuctionFinished(leilaoID string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	leilao, ok := m.leiloes[leilaoID]
+	if ok && leilao.Ativo {
+		leilao.Ativo = false
+
+		if leilao.Vencedor != "" {
+			vencedor := models.LeilaoVencedor{
+				LeilaoID: leilao.ID,
+				UserID:   leilao.Vencedor,
+				Valor:    leilao.MaiorLance,
 			}
-			if err := json.Unmarshal(d.Body, &finalizado); err == nil {
-				m.mu.Lock()
-				leilao, ok := m.leiloes[finalizado.ID]
-				if ok && leilao.Ativo {
-					leilao.Ativo = false
-					vencedor := models.LeilaoVencedor{
-						LeilaoID: leilao.ID,
-						UserID:   leilao.Vencedor,
-						Valor:    leilao.MaiorLance,
-					}
-					body, _ := json.Marshal(vencedor)
-					rabbitmq.PublishToExchange(m.ch, "leilao_events", "leilao.vencedor", body)
-					log.Printf("Leilão %s finalizado. Vencedor: %s (%.2f)", leilao.ID, leilao.Vencedor, leilao.MaiorLance)
-				}
-				m.mu.Unlock()
+
+			log.Printf("Leilão %s finalizado. Vencedor: %s (%.2f)",
+				leilao.ID, leilao.Vencedor, leilao.MaiorLance)
+
+			if m.onAuctionWinner != nil {
+				m.onAuctionWinner(vencedor)
 			}
 		}
-	}()
+	}
 }

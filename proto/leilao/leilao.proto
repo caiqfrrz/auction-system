@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package leilao;
+
+option go_package = "auction-system/proto/leilao";
+
+service LeilaoService {
+    rpc CreateAuction(CreateAuctionRequest) returns (CreateAuctionResponse);
+    rpc ConsultAuctions(ConsultAuctionsRequest) returns (ConsultAuctionsResponse);
+    rpc NotifyAuctionStarted(AuctionStartedNotification) returns (Empty);
+    rpc NotifyAuctionFinished(AuctionFinishedNotification) returns (Empty);
+}
+
+message CreateAuctionRequest {
+  string titulo = 1;
+  string descricao = 2;
+  double valor_inicial = 3;
+  int64 duracao_segundos = 4;
+}
+
+message CreateAuctionResponse {
+  string leilao_id = 1;
+  bool success = 2;
+  string error = 3;
+}
+
+message ConsultAuctionsRequest {}
+
+message ConsultAuctionsResponse {
+  repeated Auction auctions = 1;
+}
+
+message Auction {
+  string id = 1;
+  string titulo = 2;
+  string descricao = 3;
+  double valor_inicial = 4;
+  int64 tempo_restante = 5;
+  bool active = 6;
+}
+
+message AuctionStartedNotification {
+  string leilao_id = 1;
+  int64 duracao = 2;
+}
+
+message AuctionFinishedNotification {
+  string leilao_id = 1;
+}
+
+message Empty {}

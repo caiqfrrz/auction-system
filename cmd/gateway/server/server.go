@@ -1,9 +1,10 @@
 package server
 
 import (
-	"auction-system/internal/gateway/rabbitmq"
+	grpcClients "auction-system/internal/gateway/grpc"
 	"auction-system/internal/gateway/sse"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -13,47 +14,51 @@ import (
 )
 
 type Server struct {
-	port           int
-	msLanceHost    string
-	msLeilaoHost   string
-	eventStream    *sse.EventStream
-	rabbitConsumer *rabbitmq.RabbitMQConsumer
+	port        string
+	grpcClients *grpcClients.GRPCClients
+	eventStream *sse.EventStream
 }
 
 func NewServer() (*http.Server, error) {
 	port, _ := strconv.Atoi(os.Getenv("PORT"))
-	msLeilao := os.Getenv("MSLEILAO_HOST")
-	msLance := os.Getenv("MSLANCE_HOST")
-	rabbitURL := os.Getenv("RABBITMQ_URL")
+
+	leilaoAddr := os.Getenv("MSLEILAO_GRPC")
+	if leilaoAddr == "" {
+		leilaoAddr = "localhost:50051"
+	}
+
+	lanceAddr := os.Getenv("MSLANCE_GRPC")
+	if lanceAddr == "" {
+		lanceAddr = "localhost:50052"
+	}
+
+	pagamentoAddr := os.Getenv("MSPAGAMENTO_GRPC")
+	if pagamentoAddr == "" {
+		pagamentoAddr = "localhost:50053"
+	}
+
+	grpcCli, err := grpcClients.NewGRPCClients(leilaoAddr, lanceAddr, pagamentoAddr)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create gRPC clients: %w", err)
+	}
 
 	newStream := sse.NewEventStream()
+	//go newStream.Listen()
 
-	rabbitConsumer, err := rabbitmq.NewRabbitMQConsumer(rabbitURL, newStream)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create RabbitMQ consumer: %w", err)
-	}
-
-	if err := rabbitConsumer.ConsumeQueues(); err != nil {
-		rabbitConsumer.Close()
-		return nil, fmt.Errorf("failed to start consuming queues: %w", err)
-	}
-
-	NewServer := &Server{
-		port:           port,
-		msLanceHost:    msLance,
-		msLeilaoHost:   msLeilao,
-		eventStream:    newStream,
-		rabbitConsumer: rabbitConsumer,
+	newServer := &Server{
+		port:        strconv.Itoa(port),
+		grpcClients: grpcCli,
+		eventStream: newStream,
 	}
 
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%d", NewServer.port),
-		Handler:      NewServer.registerRoutes(),
-		IdleTimeout:  0,
+		Addr:         fmt.Sprintf(":%s", port),
+		Handler:      newServer.registerRoutes(),
 		ReadTimeout:  15 * time.Second,
-		WriteTimeout: 0,
+		WriteTimeout: 15 * time.Second,
 	}
 
+	log.Printf("Gateway server initialized on port %s", port)
 	return server, nil
 }
 
@@ -74,8 +79,11 @@ func (s *Server) registerRoutes() http.Handler {
 		c.Next()
 	})
 
+	// SSE
 	r.GET("/consult-auctions", s.ConsultAuctions)
 	r.GET("/register-interest/:auctionID/stream", HeadersMiddleware(), s.eventStream.SSEConnMiddleware(), s.RegisterInterest)
+
+	// REST endpoints (frontend -> gateway)
 	r.GET("/cancel-interest", s.CancelInterest)
 	r.GET("/highest-bid", s.GetHighestBid)
 	r.POST("/create-auction", s.CreateAuction)

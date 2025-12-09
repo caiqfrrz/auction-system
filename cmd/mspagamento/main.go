@@ -2,48 +2,51 @@ package main
 
 import (
 	"auction-system/internal/mspagamento"
-	"auction-system/pkg/rabbitmq"
-	"fmt"
-	"net/http"
+	"log"
 	"os"
 	"os/signal"
+	"syscall"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	// Connect to RabbitMQ
-	conn, ch := rabbitmq.Connect()
-	defer conn.Close()
-	defer ch.Close()
+	godotenv.Load("cmd/mspagamento/.env")
 
-	// Environment variables or defaults
-	externalPayURL := os.Getenv("EXTERNAL_PAY_URL")
-	if externalPayURL == "" {
-		externalPayURL = "http://localhost:8085" // PagExterno service
-	}
 	publicURL := os.Getenv("PUBLIC_URL")
 	if publicURL == "" {
-		publicURL = "http://localhost:8084" // used for webhook callback
-	}
-	httpAddr := os.Getenv("HTTP_ADDR")
-	if httpAddr == "" {
-		httpAddr = ":8084"
+		publicURL = "http://localhost:8083"
 	}
 
-	// Create MS Pagamento instance
-	ms := mspagamento.NewMsPagamento(ch, externalPayURL, publicURL, "ms_pagamentos", httpAddr)
-
-	// Start background listeners
-	go ms.Start()
-
-	fmt.Println("[MS PAGAMENTO] Running at", httpAddr)
-
-	// Graceful shutdown (Ctrl+C)
-	forever := make(chan os.Signal, 1)
-	signal.Notify(forever, os.Interrupt)
-	<-forever
-
-	fmt.Println("\n[MS PAGAMENTO] Shutting down gracefully...")
-	if err := http.DefaultClient.CloseIdleConnections; err != nil {
-		fmt.Println("error closing HTTP connections:", err)
+	externalPayURL := os.Getenv("PAGEXTERNO_URL")
+	if externalPayURL == "" {
+		externalPayURL = "http://localhost:8085"
 	}
+
+	msPagamento := mspagamento.NewMsPagamento(publicURL, externalPayURL)
+
+	grpcPort := os.Getenv("GRPC_PORT")
+	if grpcPort == "" {
+		grpcPort = "50053"
+	}
+
+	grpcServer, err := mspagamento.StartGRPCServer(msPagamento, grpcPort)
+	if err != nil {
+		log.Fatalf("Failed to start gRPC server: %v", err)
+	}
+
+	go func() {
+		if err := msPagamento.StartWebhookServer(":8083"); err != nil {
+			log.Fatalf("Failed to start webhook server: %v", err)
+		}
+	}()
+
+	log.Println("MSPagamento iniciado")
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down MSPagamento...")
+	grpcServer.GracefulStop()
 }

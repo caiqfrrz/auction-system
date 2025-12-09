@@ -1,26 +1,36 @@
 package main
 
 import (
-	"auction-system/cmd/mslance/server"
-	"auction-system/pkg/rabbitmq"
-	"fmt"
-	"net/http"
+	"auction-system/internal/mslance"
+	"log"
 	"os"
 	"os/signal"
+	"syscall"
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
-	conn, ch := rabbitmq.Connect()
-	defer conn.Close()
-	defer ch.Close()
+	godotenv.Load("cmd/mslance/.env")
 
-	server := server.NewServer(ch)
-	err := server.ListenAndServe()
-	if err != nil && err != http.ErrServerClosed {
-		panic(fmt.Sprintf("http server error: %s", err))
+	msLance := mslance.NewMSLance()
+
+	grpcPort := os.Getenv("GRPC_PORT")
+	if grpcPort == "" {
+		grpcPort = "50052"
 	}
 
-	forever := make(chan os.Signal, 1)
-	signal.Notify(forever, os.Interrupt)
-	<-forever
+	grpcServer, err := mslance.StartGRPCServer(msLance, grpcPort)
+	if err != nil {
+		log.Fatalf("Failed to start gRPC server: %v", err)
+	}
+
+	log.Println("MSLance iniciado")
+
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+	<-quit
+
+	log.Println("Shutting down MSLance...")
+	grpcServer.GracefulStop()
 }

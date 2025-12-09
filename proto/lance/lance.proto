@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package lance;
+
+option go_package = "auction-system/proto/lance";
+
+service LanceService {
+  rpc MakeBid(MakeBidRequest) returns (MakeBidResponse);
+  rpc GetHighestBid(GetHighestBidRequest) returns (GetHighestBidResponse);
+  rpc NotifyAuctionStarted(AuctionStartedNotification) returns (Empty);
+  rpc NotifyAuctionFinished(AuctionFinishedNotification) returns (Empty);
+  rpc NotifyBidValidated(BidValidatedNotification) returns (Empty);
+  rpc NotifyBidInvalidated(BidInvalidatedNotification) returns (Empty);
+}
+
+message MakeBidRequest {
+  string user_id = 1;
+  string leilao_id = 2;
+  double valor = 3;
+}
+
+message MakeBidResponse {
+  bool success = 1;
+  string error = 2;
+}
+
+message GetHighestBidRequest {
+  string leilao_id = 1;
+}
+
+message GetHighestBidResponse {
+  double highest_bid = 1;
+  string leilao_id = 2;
+}
+
+message AuctionStartedNotification {
+  string leilao_id = 1;
+  int64 duracao = 2;
+}
+
+message AuctionFinishedNotification {
+  string leilao_id = 1;
+}
+
+message BidValidatedNotification {
+  string leilao_id = 1;
+  string user_id = 2;
+  double valor = 3;
+}
+
+message BidInvalidatedNotification {
+  string leilao_id = 1;
+  string user_id = 2;
+  string motivo = 3;
+}
+
+message Empty {}

@@ -1,17 +1,12 @@
 package msleilao
 
 import (
-	"auction-system/pkg/models"
-	"auction-system/pkg/rabbitmq"
-	"encoding/json"
 	"fmt"
 	"log"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
-
-	amqp "github.com/rabbitmq/amqp091-go"
 )
 
 type Auction struct {
@@ -23,19 +18,23 @@ type Auction struct {
 }
 
 type MsLeilao struct {
-	ch       *amqp.Channel
 	auctions []Auction
 	mu       sync.RWMutex
+	// Callbacks para notificar quando leilão inicia/finaliza
+	onAuctionStarted  func(string, int64) // (leilaoID, duracao)
+	onAuctionFinished func(string)        // (leilaoID)
 }
 
-func NewMsLeilao(ch *amqp.Channel) *MsLeilao {
-	// now := time.Now()
-	auctions := []Auction{
-		// {ID: "1", Descricao: "Almoço no RU", Inicio: now.Add(2 * time.Second), Fim: now.Add(50 * time.Second), Ativo: false},
-		// {ID: "2", Descricao: "Monalisa", Inicio: now.Add(20 * time.Second), Fim: now.Add(40 * time.Second), Ativo: false},
+func NewMsLeilao() *MsLeilao {
+	return &MsLeilao{
+		auctions: []Auction{},
 	}
+}
 
-	return &MsLeilao{ch: ch, auctions: auctions}
+// Registrar callbacks para notificações
+func (l *MsLeilao) SetAuctionCallbacks(onStart func(string, int64), onFinish func(string)) {
+	l.onAuctionStarted = onStart
+	l.onAuctionFinished = onFinish
 }
 
 func (l *MsLeilao) CreateAuction(desc string, start time.Time, end time.Time) error {
@@ -90,44 +89,37 @@ func (l *MsLeilao) ConsultAuctions() []Auction {
 	return auctions
 }
 
-func (l *MsLeilao) Start() {
-	rabbitmq.DeclareExchange(l.ch, "leilao_events", "topic")
-
-	l.mu.RLock()
-	for i := range l.auctions {
-		l.ScheduleAuction(&l.auctions[i])
-	}
-	l.mu.RUnlock()
-
-	fmt.Println("Agendamento de leilões iniciado.")
-}
-
 func (l *MsLeilao) ScheduleAuction(auction *Auction) {
+	// Goroutine para iniciar leilão
 	go func(a *Auction) {
 		time.Sleep(time.Until(a.Inicio))
-		a.Ativo = true
-		event := models.LeilaoIniciado{
-			ID:         a.ID,
-			Descricao:  a.Descricao,
-			DataInicio: a.Inicio,
-			DataFim:    a.Fim,
-		}
-		body, _ := json.Marshal(event)
 
-		rabbitmq.PublishToExchange(l.ch, "leilao_events", "leilao.iniciado", body)
+		l.mu.Lock()
+		a.Ativo = true
+		l.mu.Unlock()
+
 		log.Printf("Leilão %s iniciado!", a.ID)
+
+		// Notificar via callback (que chamará gRPC)
+		if l.onAuctionStarted != nil {
+			duracao := int64(a.Fim.Sub(a.Inicio).Seconds())
+			l.onAuctionStarted(a.ID, duracao)
+		}
 	}(auction)
 
+	// Goroutine para finalizar leilão
 	go func(a *Auction) {
 		time.Sleep(time.Until(a.Fim))
+
+		l.mu.Lock()
 		a.Ativo = false
-		event := map[string]string{
-			"id":          a.ID,
-			"description": a.Descricao,
-		}
-		body, _ := json.Marshal(event)
-		rabbitmq.PublishToExchange(l.ch, "leilao_events", "leilao.finalizado", body)
+		l.mu.Unlock()
 
 		log.Printf("Leilão %s finalizado!", a.ID)
+
+		// Notificar via callback (que chamará gRPC)
+		if l.onAuctionFinished != nil {
+			l.onAuctionFinished(a.ID)
+		}
 	}(auction)
 }
