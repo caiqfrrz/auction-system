@@ -185,7 +185,7 @@ func (r *RabbitMQConsumer) handleLinkPagamento(msg amqp.Delivery) {
 		return
 	}
 
-	log.Printf("Status pagamento: user=%s, link=%s, auctionId=%s", linkPagamento.UserID, linkPagamento.PaymentLink, linkPagamento.AuctionID)
+	log.Printf("Link pagamento: user=%s, link=%s, auctionId=%s", linkPagamento.UserID, linkPagamento.PaymentLink, linkPagamento.AuctionID)
 
 	leilaoID, _ := strconv.Atoi(linkPagamento.AuctionID)
 

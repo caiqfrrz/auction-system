@@ -13,9 +13,9 @@ export function useSSE(
     useEffect(() => {
         
         registeredAuctionsID.forEach((auctionId) => {
-        if (!eventSourcesRef.current.has(auctionId)) {
-            const eventSource = new EventSource(
-            `${BASE_URL}/register-interest/${auctionId}/stream?clienteID=${userId}`
+            if (!eventSourcesRef.current.has(auctionId)) {
+                const eventSource = new EventSource(
+                `${BASE_URL}/register-interest/${auctionId}/stream?clienteID=${userId}`
             );
 
             eventSource.addEventListener('lance_validado', (e) => {
@@ -55,11 +55,11 @@ export function useSSE(
         });
 
         eventSourcesRef.current.forEach((eventSource, auctionId) => {
-        if (!registeredAuctionsID.includes(auctionId)) {
-            eventSource.close();
-            eventSourcesRef.current.delete(auctionId);
-            console.log(`Disconnected from auction ${auctionId}`);
-        }
+            if (!registeredAuctionsID.includes(auctionId)) {
+                eventSource.close();
+                eventSourcesRef.current.delete(auctionId);
+                console.log(`Disconnected from auction ${auctionId}`);
+            }
         });
 
         return () => {

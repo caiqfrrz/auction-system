@@ -122,23 +122,23 @@ func (s *Server) RegisterInterest(c *gin.Context) {
 		return
 	}
 
-	log.Printf("🔌 Cliente %s iniciou stream no leilão %d", client.ID, client.LeilaoID)
+	log.Printf("Cliente %s iniciou stream no leilão %d", client.ID, client.LeilaoID)
 
 	// Iniciar stream
 	c.Stream(func(w io.Writer) bool {
 		select {
 		case notification, ok := <-client.Channel:
 			if !ok {
-				log.Printf("❌ Canal fechado para cliente %s", client.ID)
+				log.Printf("Canal fechado para cliente %s", client.ID)
 				return false
 			}
 
-			log.Printf("📤 Enviando %s para cliente %s", notification.Type, client.ID)
+			log.Printf("Enviando %s para cliente %s", notification.Type, client.ID)
 
 			// Enviar notificação para o cliente
 			c.SSEvent(string(notification.Type), notification)
 
-			log.Printf("✅ Evento %s enviado", notification.Type)
+			log.Printf("Evento %s enviado", notification.Type)
 			return true
 
 		case <-c.Request.Context().Done():

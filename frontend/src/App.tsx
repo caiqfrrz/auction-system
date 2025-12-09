@@ -33,7 +33,9 @@ function App() {
     switch (type) {
       case "lance_validado":
         toast.success(
-          `Novo lance de R$ ${data.valor} no leilão ${auction?.description}!`,
+          data.user_id === userId
+            ? `Você fez um novo lance de R$ ${data.valor} no leilão ${auction?.description}!`
+            : `Novo lance de R$ ${data.valor} no leilão ${auction?.description}!`,
           {
             duration: 4000,
             icon: "🔨",
@@ -92,11 +94,11 @@ function App() {
       case "status_pagamento":
         if (data.status === "approved") {
           toast.success("✅ Pagamento aprovado!", {
-            duration: 50000,
+            duration: 20000,
           });
         } else {
           toast.error("❌ Pagamento recusado", {
-            duration: 50000,
+            duration: 20000,
           });
         }
         break;
