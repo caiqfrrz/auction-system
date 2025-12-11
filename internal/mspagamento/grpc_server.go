@@ -38,18 +38,6 @@ func (s *PagamentoGRPCServer) NotifyAuctionWinner(ctx context.Context, notif *pb
 	return &pb.Empty{}, nil
 }
 
-func (s *PagamentoGRPCServer) NotifyPaymentLink(ctx context.Context, notif *pb.PaymentLinkNotification) (*pb.Empty, error) {
-	log.Printf("[MSPagamento gRPC] Payment link: user=%s, link=%s",
-		notif.UserId, notif.PaymentLink)
-	return &pb.Empty{}, nil
-}
-
-func (s *PagamentoGRPCServer) NotifyPaymentStatus(ctx context.Context, notif *pb.PaymentStatusNotification) (*pb.Empty, error) {
-	log.Printf("[MSPagamento gRPC] Payment status: user=%s, status=%s",
-		notif.UserId, notif.Status)
-	return &pb.Empty{}, nil
-}
-
 func StartGRPCServer(msPagamento *MsPagamento, port string) (*grpc.Server, error) {
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
