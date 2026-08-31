@@ -2,22 +2,14 @@ package mslance
 
 import (
 	"auction-system/pkg/models"
-	"crypto"
-	"crypto/rsa"
-	"crypto/sha256"
-	"crypto/x509"
-	"encoding/base64"
+	"auction-system/pkg/rabbitmq"
 	"encoding/json"
-	"encoding/pem"
+	"fmt"
 	"log"
 	"sync"
 
-	"auction-system/pkg/rabbitmq"
-
 	amqp "github.com/rabbitmq/amqp091-go"
 )
-
-var publicKeys = make(map[string]*rsa.PublicKey)
 
 type LeilaoStatus struct {
 	ID         string
@@ -56,34 +48,81 @@ func (m *MSLance) DeclareExchangeAndQueues() {
 	rabbitmq.DeclareQueue(m.ch, "lance_validado")
 	rabbitmq.BindQueueToExchange(m.ch, "lance_validado", "lance.validado", "leilao_events")
 
+	rabbitmq.DeclareQueue(m.ch, "lance_invalidado")
+	rabbitmq.BindQueueToExchange(m.ch, "lance_invalidado", "lance.invalidado", "leilao_events")
+
 	rabbitmq.DeclareQueue(m.ch, "leilao_vencedor")
 	rabbitmq.BindQueueToExchange(m.ch, "leilao_vencedor", "leilao.vencedor", "leilao_events")
+
+	rabbitmq.DeclareQueue(m.ch, "mspag_leilao_vencedor")
+	rabbitmq.BindQueueToExchange(m.ch, "mspag_leilao_vencedor", "leilao.vencedor", "leilao_events")
 
 	rabbitmq.DeclareQueue(m.ch, "cliente_registrado")
 	rabbitmq.BindQueueToExchange(m.ch, "cliente_registrado", "cliente.registrado", "leilao_events")
 }
 
-func (m *MSLance) ListenClienteRegistrado() {
-	msgs, _ := m.ch.Consume("cliente_registrado", "", true, false, false, false, nil)
-	go func() {
-		for d := range msgs {
-			var cliente models.ClienteRegistrado
-			if err := json.Unmarshal(d.Body, &cliente); err == nil {
-				block, _ := pem.Decode([]byte(cliente.PublicKey))
-				if block != nil {
-					pub, err := x509.ParsePKIXPublicKey(block.Bytes)
-					if err == nil {
-						publicKeys[cliente.UserID] = pub.(*rsa.PublicKey)
-						log.Printf("Chave pública registrada para usuário: %s", cliente.UserID)
-					} else {
-						log.Printf("Erro ao parsear chave pública do usuário %s: %v", cliente.UserID, err)
-					}
-				}
-			} else {
-				log.Printf("Erro ao deserializar registro de cliente: %v", err)
-			}
+func (m *MSLance) MakeBid(bid models.LanceRealizado) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	leilao, ok := m.leiloes[bid.LeilaoID]
+	if !ok {
+		log.Printf("Leilão %s não encontrado", bid.LeilaoID)
+		return fmt.Errorf("leilão %s não encontrado", bid.LeilaoID)
+	}
+
+	if !leilao.Ativo {
+		log.Printf("Leilão %s não está ativo", bid.LeilaoID)
+
+		invalidado := map[string]interface{}{
+			"leilao_id": bid.LeilaoID,
+			"user_id":   bid.UserID,
+			"valor":     bid.Valor,
+			"motivo":    "Leilão não está ativo",
 		}
-	}()
+		body, _ := json.Marshal(invalidado)
+		rabbitmq.PublishToExchange(m.ch, "leilao_events", "lance.invalidado", body)
+
+		return fmt.Errorf("leilão %s não está ativo", bid.LeilaoID)
+	}
+
+	if bid.Valor <= leilao.MaiorLance {
+		log.Printf("Lance invalidado: %.2f <= %.2f (leilão %s)", bid.Valor, leilao.MaiorLance, bid.LeilaoID)
+
+		invalidado := map[string]interface{}{
+			"leilao_id": bid.LeilaoID,
+			"user_id":   bid.UserID,
+			"valor":     bid.Valor,
+			"motivo":    fmt.Sprintf("Lance deve ser maior que %.2f", leilao.MaiorLance),
+		}
+		body, _ := json.Marshal(invalidado)
+		rabbitmq.PublishToExchange(m.ch, "leilao_events", "lance.invalidado", body)
+
+		return fmt.Errorf("lance deve ser maior que %.2f", leilao.MaiorLance)
+	}
+
+	leilao.MaiorLance = bid.Valor
+	leilao.Vencedor = bid.UserID
+
+	bidByte, err := json.Marshal(bid)
+	if err != nil {
+		return err
+	}
+
+	log.Printf("✅ Lance validado: %.2f por %s (leilão %s)", bid.Valor, bid.UserID, bid.LeilaoID)
+	rabbitmq.PublishToExchange(m.ch, "leilao_events", "lance.validado", bidByte)
+
+	return nil
+}
+
+func (m *MSLance) GetHighestBid(auctionID string) (float64, error) {
+	auction, ok := m.leiloes[auctionID]
+	if !ok {
+		log.Printf("Leilão %s não encontrado", auctionID)
+		return 0, fmt.Errorf("leilão %s não encontrado", auctionID)
+	}
+
+	return auction.MaiorLance, nil
 }
 
 func (m *MSLance) ListenLeilaoIniciado() {
@@ -107,59 +146,6 @@ func (m *MSLance) ListenLeilaoIniciado() {
 	}()
 }
 
-func (m *MSLance) ListenLanceRealizado() {
-	msgs, _ := m.ch.Consume("lance_realizado", "", true, false, false, false, nil)
-	go func() {
-		for d := range msgs {
-			log.Printf("mensgaem recebida")
-			var lance models.LanceRealizado
-			if err := json.Unmarshal(d.Body, &lance); err != nil {
-				log.Printf("Lance inválido (json): %v", err)
-				continue
-			}
-
-			if !verificaAssinatura(lance) {
-				log.Printf("Assinatura inválida para lance de %s", lance.UserID)
-				continue
-			}
-
-			m.mu.Lock()
-			leilao, ok := m.leiloes[lance.LeilaoID]
-			if !ok || !leilao.Ativo {
-				m.mu.Unlock()
-				log.Printf("Leilão %s não existe ou não está ativo", lance.LeilaoID)
-				continue
-			}
-			if lance.Valor > leilao.MaiorLance {
-				leilao.MaiorLance = lance.Valor
-				leilao.Vencedor = lance.UserID
-				m.mu.Unlock()
-
-				validado := models.LanceValidado{
-					LeilaoID: lance.LeilaoID,
-					UserID:   lance.UserID,
-					Valor:    lance.Valor,
-				}
-				body, _ := json.Marshal(validado)
-				m.ch.Publish(
-					"leilao_events",
-					"lance.validado",
-					false,
-					false,
-					amqp.Publishing{
-						ContentType: "application/json",
-						Body:        body,
-					},
-				)
-				log.Printf("Lance validado: %+v", validado)
-			} else {
-				m.mu.Unlock()
-				log.Printf("Lance menor que o atual para leilão %s", lance.LeilaoID)
-			}
-		}
-	}()
-}
-
 func (m *MSLance) ListenLeilaoFinalizado() {
 	msgs, _ := m.ch.Consume("leilao_finalizado", "", true, false, false, false, nil)
 	go func() {
@@ -178,40 +164,11 @@ func (m *MSLance) ListenLeilaoFinalizado() {
 						Valor:    leilao.MaiorLance,
 					}
 					body, _ := json.Marshal(vencedor)
-					m.ch.Publish(
-						"leilao_events",
-						"leilao.vencedor",
-						false,
-						false,
-						amqp.Publishing{
-							ContentType: "application/json",
-							Body:        body,
-						},
-					)
+					rabbitmq.PublishToExchange(m.ch, "leilao_events", "leilao.vencedor", body)
 					log.Printf("Leilão %s finalizado. Vencedor: %s (%.2f)", leilao.ID, leilao.Vencedor, leilao.MaiorLance)
 				}
 				m.mu.Unlock()
 			}
 		}
 	}()
-}
-
-func verificaAssinatura(lance models.LanceRealizado) bool {
-	pub, exists := publicKeys[lance.UserID]
-	if !exists {
-		return false
-	}
-
-	lanceTemp := models.LanceRealizado{
-		LeilaoID:   lance.LeilaoID,
-		UserID:     lance.UserID,
-		Valor:      lance.Valor,
-		Assinatura: "",
-	}
-	message, _ := json.Marshal(lanceTemp)
-
-	hashed := sha256.Sum256(message)
-	signature, _ := base64.StdEncoding.DecodeString(lance.Assinatura)
-	err := rsa.VerifyPKCS1v15(pub, crypto.SHA256, hashed[:], signature)
-	return err == nil
 }
