@@ -193,3 +193,10 @@ Only the Gateway loads a `.env` file (`cmd/gateway/.env`); the other services fa
 - `GET /cancel-interest` is still a stub and returns `501 Not Implemented`.
 - CORS on the Gateway is hardcoded to `http://localhost:5173`.
 - `pkg/rabbitmq` and `internal/gateway/rabbitmq` are dead code kept from the previous architecture; they compile but are no longer referenced by any `main.go`.
+
+## Authors
+
+- Guilherme Peruci Felippe — [guilhermefelippe@alunos.utfpr.edu.br](mailto:guilhermefelippe@alunos.utfpr.edu.br)
+- Caique Ferraz Cornelio — [caiqueferraz@alunos.utfpr.edu.br](mailto:caiqueferraz@alunos.utfpr.edu.br)
+
+Instituto de Informática – Universidade Tecnológica Federal do Paraná (UTFPR)
